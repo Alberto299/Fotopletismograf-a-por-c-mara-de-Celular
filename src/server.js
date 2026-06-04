@@ -1,6 +1,7 @@
 const { createServer } = require('node:http');
 const { spawn } = require('node:child_process');
 const { readFile } = require('node:fs/promises');
+const { networkInterfaces } = require('node:os');
 const { extname, join, normalize } = require('node:path');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -49,7 +50,18 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`AVResolutions listo en http://localhost:${PORT}`);
+  for (const address of getLocalAddresses()) {
+    console.log(`Red local: http://${address}:${PORT}`);
+  }
+  console.log('Nota: la camara solo funciona en localhost o con HTTPS.');
 });
+
+function getLocalAddresses() {
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((item) => item && item.family === 'IPv4' && !item.internal)
+    .map((item) => item.address);
+}
 
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);

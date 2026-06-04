@@ -1,12 +1,17 @@
 const API_URL = '/api/medir';
-const DURATION_SECONDS = 30;
 const FPS = 30;
+const MIN_CAPTURE_SECONDS = 4;
+const MAX_CAPTURE_SECONDS = 45;
+const ANALYSIS_INTERVAL_MS = 1200;
+const REQUIRED_PEAKS = 5;
 
 const state = {
   stream: null,
-  interval: null,
+  captureInterval: null,
+  analysisTimeout: null,
   redValues: [],
-  elapsedSeconds: 0
+  isCapturing: false,
+  isAnalyzing: false
 };
 
 const elements = {
@@ -20,7 +25,7 @@ const elements = {
   progressZone: document.getElementById('progress-zone'),
   progressFill: document.getElementById('progress-fill'),
   progressText: document.getElementById('progress-text'),
-  timeLeft: document.getElementById('time-left'),
+  peakCount: document.getElementById('peak-count'),
   signalDots: document.getElementById('signal-dots'),
   result: document.getElementById('result'),
   bpmNumber: document.getElementById('bpm-number'),
@@ -35,6 +40,12 @@ elements.resetButton.addEventListener('click', resetMeasurement);
 async function startMeasurement() {
   hideError();
   setButton('Iniciando camara...', true);
+
+  if (!canUseCameraHere()) {
+    showError(cameraAccessMessage());
+    setButton('Intentar de nuevo', false);
+    return;
+  }
 
   try {
     state.stream = await navigator.mediaDevices.getUserMedia({
@@ -57,10 +68,34 @@ async function startMeasurement() {
     }
 
     beginCapture();
-  } catch {
-    showError('No se pudo acceder a la camara. Revisa el permiso del navegador.');
+  } catch (error) {
+    showError(cameraAccessMessage(error));
     setButton('Intentar de nuevo', false);
   }
+}
+
+function canUseCameraHere() {
+  return window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+}
+
+function cameraAccessMessage(error = null) {
+  if (!window.isSecureContext) {
+    return 'La camara esta bloqueada porque abriste la app por HTTP desde la red local. Los navegadores solo permiten camara en localhost o HTTPS. Usa http://localhost:3000 en esta computadora, o sirve la app con HTTPS para abrirla desde otro celular/computadora.';
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return 'Este navegador no expone acceso a camara en esta pagina. Prueba con Chrome/Edge actualizado o abre la app en HTTPS.';
+  }
+
+  if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+    return 'El navegador nego el permiso de camara. Revisa el candado de la barra de direcciones y permite la camara para este sitio.';
+  }
+
+  if (error?.name === 'NotFoundError' || error?.name === 'OverconstrainedError') {
+    return 'No encontramos una camara compatible. Si estas en una laptop, prueba desde un celular con camara trasera.';
+  }
+
+  return 'No se pudo acceder a la camara. Revisa el permiso del navegador.';
 }
 
 async function enableTorch() {
@@ -97,26 +132,26 @@ function beginCapture() {
   elements.progressZone.style.display = 'block';
   elements.signalDots.style.display = 'flex';
   elements.button.style.display = 'none';
+  elements.resetButton.style.display = 'none';
+  elements.result.style.display = 'none';
+  elements.chart.style.display = 'none';
 
   state.redValues = [];
-  state.elapsedSeconds = 0;
-  elements.progressFill.style.width = '0%';
-  elements.timeLeft.textContent = String(DURATION_SECONDS);
+  state.isCapturing = true;
+  state.isAnalyzing = false;
+  updatePeakProgress(0, 'Capturando senal...');
 
-  window.setTimeout(captureFrames, 500);
+  window.setTimeout(() => {
+    captureFrames();
+    scheduleAnalysis();
+  }, 500);
 }
 
 function captureFrames() {
   const context = elements.canvas.getContext('2d');
-  const totalFrames = DURATION_SECONDS * FPS;
-  let currentFrame = 0;
 
-  state.interval = window.setInterval(() => {
-    if (currentFrame >= totalFrames) {
-      window.clearInterval(state.interval);
-      processSignal();
-      return;
-    }
+  state.captureInterval = window.setInterval(() => {
+    if (!state.isCapturing) return;
 
     context.drawImage(elements.video, 0, 0, 100, 100);
     const pixels = context.getImageData(0, 0, 100, 100).data;
@@ -127,24 +162,29 @@ function captureFrames() {
     }
 
     state.redValues.push(redSum / (pixels.length / 4));
-    currentFrame += 1;
-
-    if (currentFrame % FPS === 0) {
-      state.elapsedSeconds += 1;
-      const remaining = DURATION_SECONDS - state.elapsedSeconds;
-      elements.timeLeft.textContent = String(remaining);
-      elements.progressFill.style.width = `${(state.elapsedSeconds / DURATION_SECONDS) * 100}%`;
-    }
   }, 1000 / FPS);
 }
 
-async function processSignal() {
-  elements.progressZone.style.display = 'none';
-  elements.signalDots.style.display = 'none';
-  elements.result.style.display = 'block';
-  elements.bpmNumber.textContent = '...';
-  elements.resultStatus.textContent = 'Procesando senal...';
-  stopCamera();
+function scheduleAnalysis() {
+  window.clearTimeout(state.analysisTimeout);
+  state.analysisTimeout = window.setTimeout(analyzeCurrentSignal, ANALYSIS_INTERVAL_MS);
+}
+
+async function analyzeCurrentSignal() {
+  if (!state.isCapturing || state.isAnalyzing) return;
+
+  const capturedSeconds = state.redValues.length / FPS;
+  if (capturedSeconds < MIN_CAPTURE_SECONDS) {
+    scheduleAnalysis();
+    return;
+  }
+
+  if (capturedSeconds > MAX_CAPTURE_SECONDS) {
+    finishWithError('GENERAL');
+    return;
+  }
+
+  state.isAnalyzing = true;
 
   try {
     const response = await fetch(API_URL, {
@@ -158,18 +198,75 @@ async function processSignal() {
 
     const data = await response.json();
 
-    if (!response.ok) {
-      handleMeasurementError(data.detail);
+    if (response.ok) {
+      finishWithSuccess(data);
       return;
     }
 
-    elements.bpmNumber.textContent = data.bpm;
-    elements.resultStatus.textContent = classifyBpm(data.bpm);
-    drawChart(data.senal_debug);
-    elements.resetButton.style.display = 'block';
+    updateFeedback(data.detail, data.picos_detectados || 0);
   } catch {
-    handleMeasurementError('GENERAL');
+    updateFeedback('GENERAL', 0);
+  } finally {
+    state.isAnalyzing = false;
   }
+
+  if (state.isCapturing) scheduleAnalysis();
+}
+
+function finishWithSuccess(data) {
+  state.isCapturing = false;
+  window.clearInterval(state.captureInterval);
+  window.clearTimeout(state.analysisTimeout);
+  stopCamera();
+
+  updatePeakProgress(REQUIRED_PEAKS, '5 latidos estables detectados');
+  elements.progressZone.style.display = 'none';
+  elements.signalDots.style.display = 'none';
+  elements.result.style.display = 'block';
+  elements.bpmNumber.textContent = data.bpm;
+  elements.resultStatus.textContent = classifyBpm(data.bpm);
+  drawChart(data.senal_debug);
+  elements.resetButton.style.display = 'block';
+  elements.preview.classList.remove('active');
+  elements.video.style.display = 'none';
+  elements.placeholder.style.display = 'flex';
+}
+
+function finishWithError(code) {
+  state.isCapturing = false;
+  window.clearInterval(state.captureInterval);
+  window.clearTimeout(state.analysisTimeout);
+  stopCamera();
+
+  elements.progressZone.style.display = 'none';
+  elements.signalDots.style.display = 'none';
+  elements.result.style.display = 'block';
+  elements.bpmNumber.textContent = '--';
+  elements.resultStatus.textContent = 'Sin resultado';
+  handleMeasurementError(code);
+  elements.preview.classList.remove('active');
+  elements.video.style.display = 'none';
+  elements.placeholder.style.display = 'flex';
+}
+
+function updateFeedback(code, peaksDetected) {
+  const messages = {
+    SIN_DEDO: 'Esperando dedo...',
+    SENAL_INSUFICIENTE: 'Capturando senal...',
+    BUSCANDO_PULSO: 'Buscando latidos...',
+    ESTABILIZANDO_SENAL: 'Validando ritmo...',
+    MUCHO_MOVIMIENTO_O_ARRITMIA: 'Ritmo inestable, no te muevas...',
+    GENERAL: 'Analizando senal...'
+  };
+
+  updatePeakProgress(peaksDetected, messages[code] || messages.GENERAL);
+}
+
+function updatePeakProgress(peaksDetected, text) {
+  const peaks = Math.min(Math.max(Number(peaksDetected) || 0, 0), REQUIRED_PEAKS);
+  elements.progressText.textContent = text;
+  elements.peakCount.textContent = `${peaks}/${REQUIRED_PEAKS}`;
+  elements.progressFill.style.width = `${(peaks / REQUIRED_PEAKS) * 100}%`;
 }
 
 function handleMeasurementError(code) {
@@ -182,8 +279,6 @@ function handleMeasurementError(code) {
     GENERAL: 'No se pudo calcular la frecuencia cardiaca. Intenta de nuevo con mejor iluminacion.'
   };
 
-  elements.bpmNumber.textContent = '--';
-  elements.resultStatus.textContent = 'Sin resultado';
   showError(messages[code] || messages.GENERAL);
   elements.resetButton.style.display = 'block';
 }
@@ -237,10 +332,12 @@ function classifyBpm(bpm) {
 }
 
 function resetMeasurement() {
-  window.clearInterval(state.interval);
+  state.isCapturing = false;
+  state.isAnalyzing = false;
+  window.clearInterval(state.captureInterval);
+  window.clearTimeout(state.analysisTimeout);
   stopCamera();
   state.redValues = [];
-  state.elapsedSeconds = 0;
 
   elements.result.style.display = 'none';
   elements.error.style.display = 'none';
@@ -250,7 +347,7 @@ function resetMeasurement() {
   elements.resetButton.style.display = 'none';
   elements.instructions.style.display = 'block';
   elements.progressFill.style.width = '0%';
-  elements.timeLeft.textContent = String(DURATION_SECONDS);
+  elements.peakCount.textContent = `0/${REQUIRED_PEAKS}`;
   elements.preview.classList.remove('active');
   elements.video.style.display = 'none';
   elements.placeholder.style.display = 'flex';

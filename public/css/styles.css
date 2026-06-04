@@ -210,7 +210,7 @@ footer {
   text-transform: uppercase;
 }
 
-#time-left {
+#peak-count {
   color: var(--red);
   font-family: "DM Serif Display", serif;
   font-size: 1.45rem;
@@ -228,7 +228,7 @@ footer {
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--red-dark), var(--red));
-  transition: width 1s linear;
+  transition: width 0.35s ease;
 }
 
 .signal-dots {

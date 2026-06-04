@@ -7,6 +7,10 @@ import numpy as np
 from scipy.signal import butter, filtfilt, find_peaks
 
 FPS_DEFAULT = 30
+REQUIRED_PEAKS = 5
+MIN_RR_SECONDS = 0.33
+MAX_RR_SECONDS = 1.5
+MAX_RR_VARIATION = 0.15
 
 
 @dataclass
@@ -42,26 +46,35 @@ def calcular_bpm(valores_rojos: list[float], fps: int = FPS_DEFAULT) -> tuple[fl
         prominence=np.std(processed) * 0.5,
     )
 
-    if len(peaks) < 5:
+    if len(peaks) < REQUIRED_PEAKS:
         raise ApiError("BUSCANDO_PULSO", 422, {"picos_detectados": int(len(peaks))})
 
-    last_peaks = peaks[-6:]
-    rr_intervals = np.diff(last_peaks) / fps
+    rr_intervals = None
+    stable_peaks = 0
 
-    if len(rr_intervals) < 4:
-        raise ApiError("ESTABILIZANDO_SENAL", 422, {"picos_detectados": int(len(peaks))})
+    for start in range(len(peaks) - REQUIRED_PEAKS, -1, -1):
+        peak_window = peaks[start : start + REQUIRED_PEAKS]
+        candidate_rr = np.diff(peak_window) / fps
+        median_rr = np.median(candidate_rr)
+        deviation = np.std(candidate_rr)
+        is_human = MIN_RR_SECONDS <= median_rr <= MAX_RR_SECONDS
+        is_stable = (deviation / median_rr) < MAX_RR_VARIATION
 
-    median_rr = np.median(rr_intervals)
-    deviation = np.std(rr_intervals)
-    is_human = 0.33 <= median_rr <= 1.5
-    is_stable = (deviation / median_rr) < 0.15
+        if is_human and is_stable:
+            rr_intervals = candidate_rr
+            stable_peaks = REQUIRED_PEAKS
+            break
 
-    if not (is_human and is_stable):
-        raise ApiError("MUCHO_MOVIMIENTO_O_ARRITMIA", 422, {"picos_detectados": int(len(peaks))})
+    if rr_intervals is None:
+        raise ApiError(
+            "ESTABILIZANDO_SENAL",
+            422,
+            {"picos_detectados": min(int(len(peaks)), REQUIRED_PEAKS - 1)},
+        )
 
     bpm = 60.0 / np.mean(rr_intervals)
     debug_sample = processed[-fps * 5 :].tolist()
-    return round(float(bpm), 1), debug_sample, int(len(peaks))
+    return round(float(bpm), 1), debug_sample, stable_peaks
 
 
 def debug_signal(valores_rojos: list[float], fps: int = FPS_DEFAULT) -> dict[str, Any]:
