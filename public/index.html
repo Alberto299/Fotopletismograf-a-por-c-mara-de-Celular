@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AVResolutions - Frecuencia Cardiaca</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div class="heart-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402C1 3.4 4.068 2 6.281 2 7.593 2 10.432 2.501 12 6.457 13.59 2.489 16.464 2.01 17.726 2.01 20.266 2.01 23 3.631 23 7.191c0 4.069-5.136 8.625-11 14.402z"/>
+        </svg>
+      </div>
+      <h1>Frecuencia<br><em>Cardiaca</em></h1>
+      <p>Medicion por fotopletismografia</p>
+    </header>
+
+    <section class="measurement-panel" aria-label="Medicion de frecuencia cardiaca">
+      <div class="step-label">Medicion</div>
+
+      <div class="camera-zone">
+        <h2>Apoya tu dedo</h2>
+        <p class="camera-copy">
+          Cubre completamente la camara trasera con la yema de tu dedo indice.
+          Mantente quieto mientras se captura la senal.
+        </p>
+
+        <div class="camera-preview" id="camera-preview">
+          <video id="video" playsinline autoplay muted></video>
+          <div class="camera-placeholder" id="placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span>Camara</span>
+          </div>
+        </div>
+
+        <canvas id="capture-canvas" width="100" height="100"></canvas>
+
+        <div class="instructions" id="instructions">
+          <strong>1.</strong> Presiona iniciar medicion<br>
+          <strong>2.</strong> Acepta el permiso de camara<br>
+          <strong>3.</strong> Cubre la camara por 30 segundos
+        </div>
+
+        <div class="progress-zone" id="progress-zone">
+          <div class="progress-info">
+            <span id="progress-text">Capturando senal...</span>
+            <span id="time-left">30</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="signal-dots" id="signal-dots" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+
+        <div class="result" id="result">
+          <p class="result-label">Tu frecuencia cardiaca</p>
+          <p class="result-number" id="bpm-number">--</p>
+          <p class="result-label">pulsaciones por minuto</p>
+          <span class="result-status" id="result-status">Calculando...</span>
+          <canvas id="pulse-chart" width="400" height="120"></canvas>
+        </div>
+
+        <div class="error-message" id="error-message"></div>
+
+        <button class="button primary" id="measure-button" type="button">Iniciar medicion</button>
+        <button class="button secondary" id="reset-button" type="button">Realizar otra medicion</button>
+      </div>
+    </section>
+
+    <footer>AVResolutions &copy; 2026 - Medicion no invasiva</footer>
+  </main>
+
+  <script src="/js/app.js" defer></script>
+</body>
+</html>

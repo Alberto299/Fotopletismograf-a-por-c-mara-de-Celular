@@ -1,0 +1,14 @@
+{
+  "name": "avresolutions-heart-rate",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Medicion de frecuencia cardiaca con frontend web, servidor Node.js y procesamiento PPG en Python.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
