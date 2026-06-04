@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Debug PPG</title>
+<style>
+  body { font-family: monospace; background: #0f0f0f; color: #e0e0e0; padding: 20px; }
+  h2 { color: #e63946; margin: 20px 0 10px; }
+  canvas { width: 100%; border-radius: 8px; background: #1a1a1a; display: block; margin-bottom: 16px; }
+  .info { background: #1a1a1a; border-radius: 8px; padding: 14px; margin-bottom: 12px; font-size: 0.85rem; line-height: 2; }
+  .ventana { background: #1a1a1a; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+  .ok   { color: #52b788; }
+  .mal  { color: #e63946; }
+  .warn { color: #f4a261; }
+
+  button {
+    background: #e63946; color: white; border: none; padding: 14px 28px;
+    border-radius: 10px; font-family: monospace; font-size: 1rem; cursor: pointer;
+    width: 100%; margin-bottom: 16px;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  #estado { text-align: center; margin-bottom: 16px; color: #f4a261; font-size: 0.85rem; min-height: 1.2em; }
+
+  /* Barra de picos */
+  .barra-wrap {
+    background: #1a1a1a; border-radius: 8px; padding: 14px;
+    margin-bottom: 16px; display: none;
+  }
+  .barra-label {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.8rem; margin-bottom: 8px;
+  }
+  .picos-num { font-size: 1.4rem; color: #e63946; }
+  .barra-fondo { height: 8px; background: #2a2a2a; border-radius: 100px; overflow: hidden; }
+  .barra-fill  { height: 100%; background: linear-gradient(90deg, #c1121f, #e63946);
+                 border-radius: 100px; width: 0%; transition: width 0.4s ease; }
+
+  /* Dots animados */
+  .signal-dots { display: none; justify-content: center; gap: 6px; margin: 12px 0; }
+  .signal-dot  {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #e63946; opacity: 0.2;
+    animation: pulsar 1.2s ease-in-out infinite;
+  }
+  .signal-dot:nth-child(2) { animation-delay: 0.2s; }
+  .signal-dot:nth-child(3) { animation-delay: 0.4s; }
+  .signal-dot:nth-child(4) { animation-delay: 0.6s; }
+  .signal-dot:nth-child(5) { animation-delay: 0.8s; }
+  @keyframes pulsar { 0%,100%{opacity:.2;transform:scale(1)} 50%{opacity:1;transform:scale(1.4)} }
+</style>
+</head>
+<body>
+
+<h1 style="color:#fff">🔬 Debug PPG</h1>
+<p style="opacity:0.5; font-size:0.8rem; margin-bottom:20px">
+  Captura continua — termina automáticamente al detectar 5 picos regulares
+</p>
+
+<button id="btn" onclick="iniciar()">Iniciar captura</button>
+<div id="estado"></div>
+
+<!-- Barra de progreso de picos -->
+<div class="barra-wrap" id="barra-wrap">
+  <div class="barra-label">
+    <span id="barra-texto">Capturando señal...</span>
+    <span class="picos-num" id="picos-contador">0 / 5</span>
+  </div>
+  <div class="barra-fondo"><div class="barra-fill" id="barra-fill"></div></div>
+</div>
+
+<!-- Dots de actividad -->
+<div class="signal-dots" id="signal-dots">
+  <div class="signal-dot"></div>
+  <div class="signal-dot"></div>
+  <div class="signal-dot"></div>
+  <div class="signal-dot"></div>
+  <div class="signal-dot"></div>
+</div>
+
+<!-- Resultados -->
+<div id="resultados" style="display:none">
+  <h2>Señal cruda</h2>
+  <canvas id="canvas-cruda" width="800" height="150"></canvas>
+
+  <h2>Señal filtrada + realzada</h2>
+  <canvas id="canvas-filtrada" width="800" height="150"></canvas>
+
+  <h2>Análisis por ventanas</h2>
+  <div id="ventanas-info"></div>
+
+  <h2>Datos crudos</h2>
+  <div class="info" id="info-cruda"></div>
+</div>
+
+<!-- Elementos ocultos -->
+<video id="video" style="display:none" playsinline autoplay muted></video>
+<canvas id="canvas-cap" width="100" height="100" style="display:none"></canvas>
+
+<script>
+  // ─────────────────────────────────────────
+  // CONSTANTES
+  // ─────────────────────────────────────────
+  const FPS              = 30;
+  const INTERVALO_ENVIO  = 3000; // ms entre cada envío al backend
+
+  // ─────────────────────────────────────────
+  // ESTADO
+  // ─────────────────────────────────────────
+  let stream      = null;
+  let intervalo   = null;   // setInterval captura frames
+  let reintento   = null;   // setTimeout próximo envío
+  let capturando  = false;
+  let valores     = [];
+  let picosCliente = 0;     // picos detectados localmente en tiempo real
+
+  // ─────────────────────────────────────────
+  // INICIAR
+  // ─────────────────────────────────────────
+  async function iniciar() {
+    const btn = document.getElementById('btn');
+    btn.disabled = true;
+    btn.textContent = 'Iniciando cámara...';
+    setEstado('Solicitando permiso de cámara...');
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+    } catch (e) {
+      setEstado('❌ No se pudo acceder a la cámara');
+      btn.disabled = false;
+      btn.textContent = 'Intentar de nuevo';
+      return;
+    }
+
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+
+    // Intentar encender flash
+    try {
+      const track = stream.getVideoTracks()[0];
+      const caps  = track.getCapabilities();
+      if (caps.torch) await track.applyConstraints({ advanced: [{ torch: true }] });
+    } catch (e) {}
+
+    await new Promise(r => setTimeout(r, 500));
+
+    // Mostrar UI de captura
+    document.getElementById('barra-wrap').style.display    = 'block';
+    document.getElementById('signal-dots').style.display  = 'flex';
+    document.getElementById('resultados').style.display    = 'none';
+    btn.textContent = 'Capturando...';
+    setEstado('Cubre la cámara con tu dedo índice');
+
+    valores      = [];
+    picosCliente = 0;
+    capturando   = true;
+
+    capturarFrames();
+    reintento = setTimeout(intentarEnvio, INTERVALO_ENVIO);
+  }
+
+  // ─────────────────────────────────────────
+  // CAPTURA CONTINUA DE FRAMES
+  // ─────────────────────────────────────────
+  function capturarFrames() {
+    const canvas = document.getElementById('canvas-cap');
+    const ctx    = canvas.getContext('2d');
+    const video  = document.getElementById('video');
+
+    intervalo = setInterval(() => {
+      if (!capturando) { clearInterval(intervalo); return; }
+
+      ctx.drawImage(video, 0, 0, 100, 100);
+      const px   = ctx.getImageData(0, 0, 100, 100).data;
+      let suma   = 0;
+      for (let i = 0; i < px.length; i += 4) suma += px[i];
+      valores.push(suma / (px.length / 4));
+
+      // Detección de picos en tiempo real (esperar al menos 2 seg de buffer)
+      if (valores.length >= FPS * 2) {
+        const { count, bpm } = contarPicosEnBuffer(valores);
+        if (count !== picosCliente) {
+          picosCliente = count;
+          actualizarBarraLocal(picosCliente, bpm);
+        }
+      }
+    }, 1000 / FPS);
+  }
+
+  // ─────────────────────────────────────────
+  // DETECCIÓN DE PICOS (cliente, tiempo real)
+  // Filtra suavemente la señal y cuenta picos
+  // con una distancia mínima de ~0.4 seg
+  // ─────────────────────────────────────────
+  function contarPicosEnBuffer(buf) {
+    // 1. Suavizado simple (media móvil de 5 frames)
+    const ventana = 5;
+    const suavizado = buf.map((_, i) => {
+      const inicio = Math.max(0, i - Math.floor(ventana / 2));
+      const fin    = Math.min(buf.length, inicio + ventana);
+      const slice  = buf.slice(inicio, fin);
+      return slice.reduce((a, b) => a + b, 0) / slice.length;
+    });
+
+    // 2. Normalizar (0–1)
+    const min = Math.min(...suavizado);
+    const max = Math.max(...suavizado);
+    const rango = max - min || 1;
+    const norm = suavizado.map(v => (v - min) / rango);
+
+    // 3. Detectar picos locales, guardando sus índices
+    const UMBRAL   = 0.55;
+    const DIST_MIN = Math.round(FPS * 0.4);
+    const indices  = [];
+    let ultimoPico = -DIST_MIN;
+
+    for (let i = 1; i < norm.length - 1; i++) {
+      if (
+        norm[i] > norm[i - 1] &&
+        norm[i] > norm[i + 1] &&
+        norm[i] > UMBRAL &&
+        i - ultimoPico >= DIST_MIN
+      ) {
+        indices.push(i);
+        ultimoPico = i;
+      }
+    }
+
+    // 4. BPM = (n_intervalos / frames_entre_picos) * FPS * 60
+    let bpm = null;
+    if (indices.length >= 2) {
+      const frames  = indices[indices.length - 1] - indices[0];
+      const nInterv = indices.length - 1;
+      bpm = Math.round((nInterv / frames) * FPS * 60);
+      if (bpm < 30 || bpm > 220) bpm = null;
+    }
+
+    return { count: indices.length, bpm };
+  }
+
+  // ─────────────────────────────────────────
+  // ACTUALIZAR BARRA CON CONTEO LOCAL
+  // ─────────────────────────────────────────
+  function actualizarBarraLocal(picos, bpmEstimado = null) {
+    const clamped = Math.min(picos, 5);
+    document.getElementById('picos-contador').textContent = `${clamped} / 5`;
+    document.getElementById('barra-fill').style.width     = `${(clamped / 5) * 100}%`;
+    if (picos > 0) {
+      const bpmTxt = bpmEstimado ? ` — ~${bpmEstimado} BPM` : '';
+      document.getElementById('barra-texto').textContent =
+        `${clamped} latido${clamped !== 1 ? 's' : ''} detectado${clamped !== 1 ? 's' : ''}${bpmTxt}`;
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // ENVÍO AL BACKEND (se repite hasta 5 picos)
+  // ─────────────────────────────────────────
+  async function intentarEnvio() {
+    if (!capturando) return;
+
+    try {
+      const res = await fetch('/api/debug-senal', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre:       'debug',
+          edad:         0,
+          valores_rojos: valores   // siempre manda el buffer completo acumulado
+        })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // ✅ 5 picos detectados → terminar y mostrar resultados
+        finalizarConExito(data);
+      } else {
+        // ⏳ Todavía no → actualizar feedback y reintentar
+        actualizarFeedback(data.detail, data.picos_detectados ?? 0);
+        reintento = setTimeout(intentarEnvio, INTERVALO_ENVIO);
+      }
+
+    } catch (e) {
+      // Error de red → seguir intentando
+      console.error('Error de red:', e);
+      reintento = setTimeout(intentarEnvio, INTERVALO_ENVIO);
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // FEEDBACK MIENTRAS SE BUSCAN PICOS
+  // ─────────────────────────────────────────
+  function actualizarFeedback(codigo, picosDetectados = 0) {
+    const mensajes = {
+      'SIN_DEDO':                    'Coloca el dedo sobre la cámara',
+      'SEÑAL_DEBIL':                 'Presiona un poco más fuerte',
+      'BUSCANDO_PULSO':              'Analizando latidos...',
+      'ESTABILIZANDO_SEÑAL':         'Casi listo, no te muevas...',
+      'MUCHO_MOVIMIENTO_O_ARRITMIA': 'Señal inestable — quédate quieto'
+    };
+
+    const picos = Math.min(picosDetectados, 5);
+    setEstado(mensajes[codigo] || 'Procesando...');
+    document.getElementById('picos-contador').textContent = `${picos} / 5`;
+    document.getElementById('barra-fill').style.width    = `${(picos / 5) * 100}%`;
+
+    const textos = {
+      'SIN_DEDO':                    'Esperando dedo...',
+      'SEÑAL_DEBIL':                 'Señal débil...',
+      'MUCHO_MOVIMIENTO_O_ARRITMIA': 'Movimiento detectado...'
+    };
+    document.getElementById('barra-texto').textContent =
+      textos[codigo] ||
+      (picos > 0 ? `${picos} latido${picos > 1 ? 's' : ''} detectado${picos > 1 ? 's' : ''}` : 'Capturando señal...');
+  }
+
+  // ─────────────────────────────────────────
+  // ÉXITO: 5 picos detectados
+  // ─────────────────────────────────────────
+  function finalizarConExito(data) {
+    capturando = false;
+    clearInterval(intervalo);
+    clearTimeout(reintento);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+
+    // Barra al 100%
+    document.getElementById('picos-contador').textContent = '5 / 5';
+    document.getElementById('barra-fill').style.width     = '100%';
+    document.getElementById('barra-texto').textContent    = '5 latidos detectados ✓';
+    document.getElementById('signal-dots').style.display  = 'none';
+
+    setEstado('✓ Análisis completado');
+
+    const btn = document.getElementById('btn');
+    btn.textContent = 'Nueva captura';
+    btn.disabled    = false;
+    btn.onclick     = () => location.reload();
+
+    mostrarResultados(data);
+  }
+
+  // ─────────────────────────────────────────
+  // MOSTRAR RESULTADOS
+  // ─────────────────────────────────────────
+  function mostrarResultados(data) {
+    document.getElementById('resultados').style.display = 'block';
+
+    dibujar('canvas-cruda',    data.señal_cruda_muestra,    '#f4a261');
+    dibujar('canvas-filtrada', data.señal_filtrada_muestra, '#e63946');
+
+    // Ventanas
+    const ventanasEl = document.getElementById('ventanas-info');
+    ventanasEl.innerHTML = data.ventanas.map(v => {
+      const bpmOk = v.bpm && v.bpm >= 40 && v.bpm <= 180;
+      const ampOk = v.amplitud >= 0.05;
+      const snrOk = v.snr >= 0.1;
+      return `
+        <div class="ventana">
+          <strong>Ventana ${v.ventana}</strong><br>
+          BPM: <span class="${bpmOk ? 'ok' : 'mal'}">${v.bpm ?? 'No detectado'}</span><br>
+          Amplitud: <span class="${ampOk ? 'ok' : 'mal'}">${v.amplitud} ${ampOk ? '✓' : '✗ muy baja (dedo mal puesto)'}</span><br>
+          SNR: <span class="${snrOk ? 'ok' : 'warn'}">${v.snr} ${snrOk ? '✓' : '⚠ señal débil'}</span>
+        </div>`;
+    }).join('');
+
+    // Info cruda
+    document.getElementById('info-cruda').innerHTML = `
+      Total frames: <span class="ok">${data.total_frames}</span><br>
+      Rango señal cruda: <span class="${data.rango_crudo > 5 ? 'ok' : 'mal'}">${data.rango_crudo}
+        ${data.rango_crudo > 5 ? '✓ buena variación' : '✗ muy plana — posible problema de dedo o iluminación'}
+      </span><br>
+      BPM final: <span class="ok">${data.bpm ?? '—'}</span>
+    `;
+  }
+
+  // ─────────────────────────────────────────
+  // DIBUJAR GRÁFICA
+  // ─────────────────────────────────────────
+  function dibujar(id, señal, color) {
+    if (!señal || señal.length === 0) return;
+    const canvas = document.getElementById(id);
+    const ctx    = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = (h / 4) * i;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    const min   = Math.min(...señal);
+    const max   = Math.max(...señal);
+    const rango = max - min || 1;
+    const pad   = 12;
+
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 1.5;
+    ctx.lineJoin    = 'round';
+
+    señal.forEach((val, i) => {
+      const x = (i / (señal.length - 1)) * w;
+      const y = pad + (1 - (val - min) / rango) * (h - pad * 2);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+  }
+
+  // ─────────────────────────────────────────
+  // HELPER
+  // ─────────────────────────────────────────
+  function setEstado(msg) {
+    document.getElementById('estado').textContent = msg;
+  }
+</script>
+</body>
+</html>

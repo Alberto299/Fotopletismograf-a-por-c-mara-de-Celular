@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AVResolutions — Frecuencia Cardíaca</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rojo: #e63946;
+    --rojo-oscuro: #c1121f;
+    --crema: #f8f4ef;
+    --cafe: #2d1b0e;
+    --cafe-medio: #5c3d2e;
+    --blanco: #ffffff;
+    --sombra: rgba(45,27,14,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--crema);
+    color: var(--cafe);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Fondo con textura */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(230,57,70,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(230,57,70,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Líneas decorativas de fondo */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 39px,
+      rgba(45,27,14,0.04) 39px,
+      rgba(45,27,14,0.04) 40px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .contenedor {
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 52px;
+    animation: bajar 0.7s ease both;
+  }
+
+  .logo-icono {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 20px;
+    position: relative;
+  }
+
+  .corazon {
+    width: 56px;
+    height: 56px;
+    fill: var(--rojo);
+    filter: drop-shadow(0 4px 12px rgba(230,57,70,0.35));
+    animation: latir 1.2s ease-in-out infinite;
+  }
+
+  @keyframes latir {
+    0%, 100% { transform: scale(1); }
+    14% { transform: scale(1.15); }
+    28% { transform: scale(1); }
+    42% { transform: scale(1.08); }
+    56% { transform: scale(1); }
+  }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.4rem;
+    line-height: 1.1;
+    color: var(--cafe);
+    letter-spacing: -0.5px;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--rojo);
+  }
+
+  .subtitulo {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cafe-medio);
+    opacity: 0.7;
+  }
+
+  /* Tarjeta */
+  .tarjeta {
+    background: var(--blanco);
+    border-radius: 20px;
+    padding: 36px 32px;
+    box-shadow:
+      0 2px 4px var(--sombra),
+      0 12px 40px rgba(45,27,14,0.08);
+    animation: bajar 0.7s ease 0.15s both;
+  }
+
+  /* Etiqueta de paso */
+  .paso-etiqueta {
+    display: inline-block;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--rojo);
+    border: 1px solid rgba(230,57,70,0.3);
+    border-radius: 100px;
+    padding: 4px 12px;
+    margin-bottom: 20px;
+  }
+
+  /* Formulario */
+  .grupo {
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cafe-medio);
+    margin-bottom: 8px;
+  }
+
+  input[type="text"],
+  input[type="number"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid rgba(45,27,14,0.15);
+    border-radius: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    color: var(--cafe);
+    background: var(--crema);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+
+  input[type="text"]:focus,
+  input[type="number"]:focus {
+    border-color: var(--rojo);
+    box-shadow: 0 0 0 3px rgba(230,57,70,0.1);
+  }
+
+  .divider {
+    height: 1px;
+    background: rgba(45,27,14,0.08);
+    margin: 28px 0;
+  }
+
+  /* Zona de cámara */
+  .camara-zona {
+    text-align: center;
+  }
+
+  .camara-zona h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.3rem;
+    margin-bottom: 6px;
+  }
+
+  .camara-desc {
+    font-size: 0.75rem;
+    color: var(--cafe-medio);
+    opacity: 0.7;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  /* Preview de cámara */
+  .camara-preview {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    margin: 0 auto 24px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid rgba(230,57,70,0.2);
+    background: var(--crema);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .camara-preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+  }
+
+  .camara-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--cafe-medio);
+    opacity: 0.4;
+    font-size: 0.7rem;
+  }
+
+  .camara-placeholder svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Canvas oculto para procesar */
+  canvas { display: none; }
+
+  /* Barra de progreso */
+  .progreso-zona {
+    display: none;
+    margin-bottom: 20px;
+  }
+
+  .progreso-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .progreso-texto {
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cafe-medio);
+  }
+
+  .progreso-tiempo {
+    font-size: 1.4rem;
+    font-family: 'DM Serif Display', serif;
+    color: var(--rojo);
+  }
+
+  .barra-fondo {
+    height: 6px;
+    background: rgba(45,27,14,0.08);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  .barra-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--rojo-oscuro), var(--rojo));
+    border-radius: 100px;
+    width: 0%;
+    transition: width 1s linear;
+  }
+
+  /* Señal en tiempo real */
+  .signal-dots {
+    display: none;
+    justify-content: center;
+    gap: 6px;
+    margin: 16px 0;
+  }
+
+  .signal-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--rojo);
+    opacity: 0.2;
+    animation: pulsar 1.2s ease-in-out infinite;
+  }
+
+  .signal-dot:nth-child(2) { animation-delay: 0.2s; }
+  .signal-dot:nth-child(3) { animation-delay: 0.4s; }
+  .signal-dot:nth-child(4) { animation-delay: 0.6s; }
+  .signal-dot:nth-child(5) { animation-delay: 0.8s; }
+
+  @keyframes pulsar {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.4); }
+  }
+
+  /* Botones */
+  .btn {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-principal {
+    background: var(--cafe);
+    color: var(--crema);
+  }
+
+  .btn-principal:hover {
+    background: var(--cafe-medio);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(45,27,14,0.2);
+  }
+
+  .btn-camara {
+    background: var(--rojo);
+    color: white;
+    margin-top: 0;
+  }
+
+  .btn-camara:hover {
+    background: var(--rojo-oscuro);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(230,57,70,0.3);
+  }
+
+  .btn:active { transform: translateY(0); }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Resultado */
+  .resultado {
+    display: none;
+    text-align: center;
+    animation: aparecer 0.5s ease both;
+  }
+
+  .resultado-numero {
+    font-family: 'DM Serif Display', serif;
+    font-size: 5rem;
+    line-height: 1;
+    color: var(--rojo);
+    margin: 8px 0;
+  }
+
+  .resultado-unidad {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cafe-medio);
+    opacity: 0.6;
+  }
+
+  .resultado-estado {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: rgba(230,57,70,0.08);
+    color: var(--rojo);
+    border: 1px solid rgba(230,57,70,0.2);
+  }
+
+  .btn-reiniciar {
+    background: transparent;
+    color: var(--cafe);
+    border: 1.5px solid rgba(45,27,14,0.2);
+    margin-top: 20px;
+  }
+
+  .btn-reiniciar:hover {
+    border-color: var(--cafe);
+    background: rgba(45,27,14,0.04);
+  }
+
+  /* Error */
+  .error-msg {
+    display: none;
+    background: rgba(230,57,70,0.06);
+    border: 1px solid rgba(230,57,70,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.75rem;
+    color: var(--rojo-oscuro);
+    margin-top: 16px;
+    text-align: center;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    margin-top: 36px;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cafe-medio);
+    opacity: 0.4;
+    animation: bajar 0.7s ease 0.3s both;
+  }
+
+  /* Instrucciones */
+  .instrucciones {
+    background: rgba(230,57,70,0.04);
+    border: 1px solid rgba(230,57,70,0.12);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    color: var(--cafe-medio);
+  }
+
+  .instrucciones strong {
+    color: var(--rojo);
+    font-weight: 500;
+  }
+
+  @keyframes bajar {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes aparecer {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  /* Ring de cámara activa */
+  .camara-preview.activa {
+    border-color: var(--rojo);
+    box-shadow: 0 0 0 4px rgba(230,57,70,0.12), 0 0 20px rgba(230,57,70,0.2);
+  }
+
+  .camara-preview.activa::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid rgba(230,57,70,0.4);
+    animation: ring 1.5s ease-out infinite;
+  }
+
+  @keyframes ring {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.1); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="contenedor">
+
+  <header>
+    <div class="logo-icono">
+      <svg class="corazon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
+      </svg>
+    </div>
+    <h1>Frecuencia<br><em>Cardíaca</em></h1>
+    <p class="subtitulo">Medición por fotopletismografía</p>
+  </header>
+
+  <div class="tarjeta" id="paso-formulario">
+    <span class="paso-etiqueta">Paso 1 — Datos personales</span>
+
+    <div class="grupo">
+      <label for="nombre">Nombre completo</label>
+      <input type="text" id="nombre" placeholder="Ej. Juan García" autocomplete="off">
+    </div>
+
+    <div class="grupo">
+      <label for="edad">Edad</label>
+      <input type="number" id="edad" placeholder="Ej. 28" min="1" max="120">
+    </div>
+
+    <button class="btn btn-principal" onclick="irACamara()">
+      Continuar →
+    </button>
+  </div>
+
+  <div class="tarjeta" id="paso-camara" style="display:none;">
+    <span class="paso-etiqueta">Paso 2 — Medición</span>
+
+    <div class="camara-zona">
+      <h2>Apoya tu dedo</h2>
+      <p class="camara-desc">
+        Cubre completamente la cámara trasera con la yema de tu dedo índice.<br>
+        El flash se activará automáticamente.
+      </p>
+
+      <div class="camara-preview" id="camara-preview">
+        <video id="video" playsinline autoplay muted></video>
+        <div class="camara-placeholder" id="placeholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span>Cámara</span>
+        </div>
+      </div>
+
+      <canvas id="canvas" width="100" height="100"></canvas>
+
+      <div class="instrucciones" id="instrucciones">
+        <strong>① </strong> Presiona "Iniciar medición"<br>
+        <strong>② </strong> Acepta el permiso de cámara<br>
+        <strong>③ </strong> Cubre la cámara con tu dedo por 30 seg
+      </div>
+
+      <div class="progreso-zona" id="progreso-zona">
+        <div class="progreso-info">
+          <span class="progreso-texto">Capturando señal...</span>
+          <span class="progreso-tiempo" id="tiempo-restante">30</span>
+        </div>
+        <div class="barra-fondo">
+          <div class="barra-fill" id="barra-fill"></div>
+        </div>
+      </div>
+
+      <div class="signal-dots" id="signal-dots">
+        <div class="signal-dot"></div>
+        <div class="signal-dot"></div>
+        <div class="signal-dot"></div>
+        <div class="signal-dot"></div>
+        <div class="signal-dot"></div>
+      </div>
+
+      <div class="resultado" id="resultado">
+        <p class="resultado-unidad">Tu frecuencia cardíaca</p>
+        <p class="resultado-numero" id="bpm-numero">--</p>
+        <p class="resultado-unidad">pulsaciones por minuto</p>
+        <span class="resultado-estado" id="resultado-estado">Calculando...</span>
+        <canvas id="grafica-pulso" width="400" height="120" style="display:none; width:100%; margin-top:16px; border-radius:12px; background:#f8f4ef;"></canvas>
+        <br>
+        <button class="btn btn-reiniciar" onclick="reiniciar()">Realizar otra medición</button>
+      </div>
+
+      <div class="error-msg" id="error-msg"></div>
+
+      <button class="btn btn-camara" id="btn-medir" onclick="iniciarMedicion()">
+        Iniciar medición
+      </button>
+    </div>
+  </div>
+
+  <footer>AVResolutions © 2026 — Medición no invasiva</footer>
+</div>
+
+<script>
+  const API_URL = '/api/medir';
+  const DURACION = 30;
+  const FPS = 30;
+
+  let stream = null;
+  let intervalo = null;
+  let valoresRojos = [];
+  let segundoActual = 0;
+  let nombre = '';
+  let edad = 0;
+
+  function irACamara() {
+    nombre = document.getElementById('nombre').value.trim();
+    edad = parseInt(document.getElementById('edad').value);
+
+    if (!nombre) {
+      alert('Por favor ingresa tu nombre.');
+      return;
+    }
+    if (!edad || edad < 1 || edad > 120) {
+      alert('Por favor ingresa una edad válida.');
+      return;
+    }
+
+    document.getElementById('paso-formulario').style.display = 'none';
+    document.getElementById('paso-camara').style.display = 'block';
+  }
+
+async function iniciarMedicion() {
+    const btn = document.getElementById('btn-medir');
+    btn.disabled = true;
+    btn.textContent = 'Iniciando cámara...';
+
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        });
+
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        video.style.display = 'block';
+        document.getElementById('placeholder').style.display = 'none';
+        document.getElementById('camara-preview').classList.add('activa');
+
+        // Intentar activar flash automáticamente
+        const flashActivado = await intentarActivarFlash();
+
+        if (!flashActivado) {
+            // Mostrar instrucciones manuales y esperar confirmación
+            mostrarInstruccionesFlash();
+            return; // No continuar hasta que el usuario confirme
+        }
+
+        iniciarCaptura();
+
+    } catch(err) {
+        mostrarError('No se pudo acceder a la cámara. Asegúrate de dar permiso.');
+        btn.disabled = false;
+        btn.textContent = 'Intentar de nuevo';
+    }
+}
+
+async function intentarActivarFlash() {
+    try {
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+
+        if (capabilities.torch) {
+            await track.applyConstraints({ advanced: [{ torch: true }] });
+            console.log('Flash activado automáticamente');
+            return true;
+        }
+        return false;
+    } catch(e) {
+        return false;
+    }
+}
+
+function mostrarInstruccionesFlash() {
+    const esAndroid = /android/i.test(navigator.userAgent);
+    const esIOS = /iphone|ipad/i.test(navigator.userAgent);
+
+    let instrucciones = '';
+
+    if (esAndroid) {
+        instrucciones = `
+            <strong>⚡ Activa el flash manualmente</strong><br><br>
+            <div style="text-align:left;line-height:2">
+                1. Desliza hacia abajo para abrir <strong>Configuración rápida</strong><br>
+                2. Toca el ícono de <strong>Linterna 🔦</strong> para activarla<br>
+                3. Vuelve a la app y presiona <strong>"Ya activé el flash"</strong>
+            </div>
+        `;
+    } else if (esIOS) {
+        instrucciones = `
+            <strong>⚡ Activa el flash manualmente</strong><br><br>
+            <div style="text-align:left;line-height:2">
+                1. Desliza hacia abajo desde la esquina superior derecha<br>
+                2. Mantén presionado el ícono de <strong>Linterna 🔦</strong><br>
+                3. Vuelve a la app y presiona <strong>"Ya activé el flash"</strong>
+            </div>
+        `;
+    } else {
+        instrucciones = `
+            <strong>⚡ Activa el flash de tu dispositivo</strong><br><br>
+            <div style="text-align:left;line-height:2">
+                Activa la linterna de tu celular manualmente y luego<br>
+                presiona <strong>"Ya activé el flash"</strong>
+            </div>
+        `;
+    }
+
+    mostrarError(instrucciones);
+
+    // Cambiar botón a confirmación
+    const btn = document.getElementById('btn-medir');
+    btn.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Ya activé el flash ✓';
+    btn.onclick = confirmarFlash;
+}
+
+function confirmarFlash() {
+    // Ocultar error y continuar
+    document.getElementById('error-msg').style.display = 'none';
+    document.getElementById('instrucciones').style.display = 'none';
+
+    const btn = document.getElementById('btn-medir');
+    btn.style.display = 'none';
+
+    iniciarCaptura();
+}
+
+function iniciarCaptura() {
+    document.getElementById('progreso-zona').style.display = 'block';
+    document.getElementById('signal-dots').style.display = 'flex';
+    document.getElementById('btn-medir').style.display = 'none';
+
+    valoresRojos = [];
+    segundoActual = 0;
+
+    setTimeout(() => {
+        capturarFrames();
+    }, 500);
+}
+
+  function capturarFrames() {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const video = document.getElementById('video');
+    const totalFrames = DURACION * FPS;
+    let frameActual = 0;
+
+    const barra = document.getElementById('barra-fill');
+    const tiempoEl = document.getElementById('tiempo-restante');
+
+    intervalo = setInterval(() => {
+      if (frameActual >= totalFrames) {
+        clearInterval(intervalo);
+        procesarYEnviar();
+        return;
+      }
+
+      // Capturar frame
+      ctx.drawImage(video, 0, 0, 100, 100);
+      const pixeles = ctx.getImageData(0, 0, 100, 100).data;
+
+      // Extraer promedio del canal rojo
+      let sumaRojo = 0;
+      for (let i = 0; i < pixeles.length; i += 4) {
+        sumaRojo += pixeles[i];
+      }
+      const promedioRojo = sumaRojo / (pixeles.length / 4);
+      valoresRojos.push(promedioRojo);
+
+      frameActual++;
+
+      // Actualizar UI cada segundo
+      if (frameActual % FPS === 0) {
+        segundoActual++;
+        const restante = DURACION - segundoActual;
+        tiempoEl.textContent = restante;
+        const porcentaje = (segundoActual / DURACION) * 100;
+        barra.style.width = porcentaje + '%';
+      }
+
+    }, 1000 / FPS);
+  }
+
+  async function procesarYEnviar() {
+    document.getElementById('progreso-zona').style.display = 'none';
+    document.getElementById('signal-dots').style.display = 'none';
+
+    const resultado = document.getElementById('resultado');
+    resultado.style.display = 'block';
+    document.getElementById('bpm-numero').textContent = '...';
+    document.getElementById('resultado-estado').textContent = 'Procesando señal...';
+
+    if (stream) stream.getTracks().forEach(t => t.stop());
+
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nombre: nombre,
+                edad: edad,
+                valores_rojos: valoresRojos
+            })
+        });
+
+        if (!res.ok) {
+            const error = await res.json();
+            manejarError(error.detail);
+            return;
+        }
+
+        const data = await res.json();
+        document.getElementById('bpm-numero').textContent = data.bpm;
+        document.getElementById('resultado-estado').textContent = clasificarBPM(data.bpm);
+        if (data.señal_debug) dibujarGrafica(data.señal_debug);
+
+    } catch(err) {
+        manejarError('GENERAL');
+    }
+}
+
+function manejarError(codigo) {
+    const mensajes = {
+        'SIN_DEDO': {
+            titulo: 'No detectamos tu dedo',
+            instrucciones: [
+                '📍 Cubre completamente la cámara con la yema del dedo',
+                '💡 Busca un lugar con poca luz (evita luz solar directa)',
+                '🤏 Aplica un poco de presión sobre la cámara'
+            ]
+        },
+        'SEÑAL_DEBIL': {
+            titulo: 'Señal muy débil',
+            instrucciones: [
+                '🤏 Presiona un poco más fuerte con el dedo',
+                '📍 Asegúrate de tapar el flash también',
+                '💡 Busca un lugar más oscuro'
+            ]
+        },
+        'MUCHO_MOVIMIENTO': {
+            titulo: 'Detectamos movimiento',
+            instrucciones: [
+                '🧘 Mantén el dedo completamente quieto',
+                '📱 Apoya el celular en una superficie estable',
+                '⏱️ Evita moverte durante los 30 segundos'
+            ]
+        },
+        'GENERAL': {
+            titulo: 'No se pudo calcular',
+            instrucciones: [
+                '📍 Cubre completamente la cámara con tu dedo',
+                '💡 Busca un lugar con poca iluminación',
+                '🧘 Mantén el dedo quieto y aplica presión moderada'
+            ]
+        }
+    };
+
+    const info = mensajes[codigo] || mensajes['GENERAL'];
+
+    document.getElementById('bpm-numero').textContent = '—';
+    document.getElementById('resultado-estado').textContent = info.titulo;
+    
+
+    const instrHtml = info.instrucciones.map(i => `<div style="margin:6px 0">${i}</div>`).join('');
+    mostrarError(`<strong>${info.titulo}</strong><br><br>${instrHtml}`);
+}
+function dibujarGrafica(señal) {
+    const canvas = document.getElementById('grafica-pulso');
+    canvas.style.display = 'block';
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#f8f4ef';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(45,27,14,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        const y = (h / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+    }
+
+    const min = Math.min(...señal);
+    const max = Math.max(...señal);
+    const rango = max - min || 1;
+    const padding = 12;
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#e63946';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+
+    señal.forEach((val, i) => {
+        const x = (i / (señal.length - 1)) * w;
+        const y = padding + (1 - (val - min) / rango) * (h - padding * 2);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(230,57,70,0.08)';
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(92,61,46,0.4)';
+    ctx.font = '10px DM Mono, monospace';
+    ctx.fillText('Señal PPG — últimos 10 seg', 8, 14);
+}
+
+  function clasificarBPM(bpm) {
+    if (bpm < 60) return 'Bradicardia (bajo)';
+    if (bpm <= 100) return 'Rango normal ✓';
+    if (bpm <= 120) return 'Levemente elevado';
+    return 'Taquicardia (alto)';
+  }
+
+    function mostrarError(msg) {
+        const el = document.getElementById('error-msg');
+        el.innerHTML = msg;
+        el.style.display = 'block';
+    }
+  function reiniciar() {
+    // Reset completo
+    valoresRojos = [];
+    segundoActual = 0;
+
+    document.getElementById('resultado').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'none';
+    document.getElementById('progreso-zona').style.display = 'none';
+    document.getElementById('signal-dots').style.display = 'none';
+    document.getElementById('barra-fill').style.width = '0%';
+    document.getElementById('tiempo-restante').textContent = '30';
+    document.getElementById('camara-preview').classList.remove('activa');
+    document.getElementById('video').style.display = 'none';
+    document.getElementById('placeholder').style.display = 'flex';
+    document.getElementById('instrucciones').style.display = 'block';
+
+    const btn = document.getElementById('btn-medir');
+    btn.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Iniciar medición';
+
+    // Volver al formulario
+    document.getElementById('paso-camara').style.display = 'none';
+    document.getElementById('paso-formulario').style.display = 'block';
+    ['resultado','error-msg','progreso-zona','signal-dots','grafica-pulso'].forEach(id => document.getElementById(id).style.display = 'none');
+  }
+</script>
+</body>
+</html>

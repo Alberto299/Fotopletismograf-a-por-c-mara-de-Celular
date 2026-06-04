@@ -1,0 +1,2032 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estudio de Estrés — AVResolutions</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rojo: #e63946;
+    --rojo-oscuro: #c1121f;
+    --crema: #f8f4ef;
+    --cafe: #2d1b0e;
+    --cafe-medio: #5c3d2e;
+    --cafe-claro: #a07850;
+    --blanco: #ffffff;
+    --verde: #2d6a4f;
+    --sombra: rgba(45,27,14,0.10);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--crema);
+    color: var(--cafe);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(230,57,70,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(230,57,70,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg, transparent, transparent 39px,
+      rgba(45,27,14,0.04) 39px, rgba(45,27,14,0.04) 40px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .contenedor {
+    position: relative;
+    z-index: 1;
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 44px;
+    animation: bajar 0.7s ease both;
+  }
+
+  .logo-icono { width: 56px; height: 56px; margin: 0 auto 20px; }
+
+  .corazon {
+    width: 56px; height: 56px;
+    fill: var(--rojo);
+    filter: drop-shadow(0 4px 12px rgba(230,57,70,0.35));
+    animation: latir 1.2s ease-in-out infinite;
+  }
+
+  @keyframes latir {
+    0%, 100% { transform: scale(1); }
+    14% { transform: scale(1.15); }
+    28% { transform: scale(1); }
+    42% { transform: scale(1.08); }
+    56% { transform: scale(1); }
+  }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.4rem;
+    line-height: 1.1;
+    color: var(--cafe);
+    letter-spacing: -0.5px;
+  }
+
+  h1 em { font-style: italic; color: var(--rojo); }
+
+  .subtitulo {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cafe-medio);
+    opacity: 0.7;
+  }
+
+  .progreso-global {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    animation: bajar 0.7s ease 0.1s both;
+  }
+
+  .prog-paso {
+    flex: 1; height: 4px; border-radius: 100px;
+    background: rgba(45,27,14,0.1);
+    transition: background 0.4s ease;
+  }
+
+  .prog-paso.activo     { background: var(--rojo); }
+  .prog-paso.completado { background: rgba(230,57,70,0.35); }
+
+  .prog-labels { display: flex; margin-bottom: 28px; }
+
+  .prog-label {
+    flex: 1; text-align: center;
+    font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--cafe-medio); opacity: 0.4;
+    transition: opacity 0.3s;
+  }
+
+  .prog-label.activo     { opacity: 1; color: var(--rojo); }
+  .prog-label.completado { opacity: 0.6; }
+
+  .tarjeta {
+    background: var(--blanco);
+    border-radius: 24px;
+    padding: 36px 32px;
+    box-shadow: 0 2px 4px var(--sombra), 0 16px 48px rgba(45,27,14,0.07);
+    display: none;
+    animation: aparecer 0.45s ease both;
+  }
+
+  .tarjeta.visible { display: block; }
+
+  .seccion-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 28px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid rgba(45,27,14,0.07);
+  }
+
+  .seccion-numero {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 500; flex-shrink: 0; margin-top: 2px;
+  }
+
+  .s1 .seccion-numero { background: rgba(230,57,70,0.1);  color: var(--rojo); }
+  .s2 .seccion-numero { background: rgba(224,122,95,0.1); color: #e07a5f; }
+  .s3 .seccion-numero { background: rgba(61,64,91,0.1);   color: #3d405b; }
+  .s4 .seccion-numero { background: rgba(45,106,79,0.1);  color: var(--verde); }
+
+  .seccion-titulo h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.35rem; line-height: 1.2;
+  }
+
+  .seccion-titulo p {
+    font-size: 0.7rem; color: var(--cafe-medio);
+    opacity: 0.6; margin-top: 4px; line-height: 1.5;
+  }
+
+  .grupo { margin-bottom: 20px; }
+
+  .grupo-fila {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--cafe-medio); margin-bottom: 8px;
+  }
+
+  label .req { color: var(--rojo); margin-left: 2px; }
+
+  input[type="text"],
+  input[type="number"],
+  select {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid rgba(45,27,14,0.12);
+    border-radius: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    color: var(--cafe);
+    background: var(--crema);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--rojo);
+    box-shadow: 0 0 0 3px rgba(230,57,70,0.08);
+  }
+
+  .select-wrap { position: relative; }
+
+  .select-wrap::after {
+    content: '↓';
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    font-size: 0.75rem; color: var(--cafe-claro); pointer-events: none;
+  }
+
+  .toggle-grupo { display: flex; gap: 10px; }
+
+  .toggle-opcion { flex: 1; position: relative; }
+
+  .toggle-opcion input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+
+  .toggle-opcion label {
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px;
+    border: 1.5px solid rgba(45,27,14,0.12);
+    border-radius: 12px; background: var(--crema); cursor: pointer;
+    font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--cafe-medio); transition: all 0.2s; margin-bottom: 0;
+  }
+
+  .toggle-opcion input[type="radio"]:checked + label {
+    border-color: var(--rojo); background: rgba(230,57,70,0.06);
+    color: var(--rojo); box-shadow: 0 0 0 3px rgba(230,57,70,0.08);
+  }
+
+  .likert-grupo { display: flex; gap: 8px; }
+
+  .likert-opcion { flex: 1; position: relative; text-align: center; }
+
+  .likert-opcion input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+
+  .likert-opcion label {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 6px;
+    border: 1.5px solid rgba(45,27,14,0.12); border-radius: 10px;
+    background: var(--crema); cursor: pointer; transition: all 0.2s; margin-bottom: 0;
+  }
+
+  .likert-opcion label .num {
+    font-size: 1rem; font-family: 'DM Serif Display', serif;
+    color: var(--cafe); line-height: 1;
+  }
+
+  .likert-opcion label .txt {
+    font-size: 0.52rem; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--cafe-medio); opacity: 0.6; line-height: 1.3; text-align: center;
+  }
+
+  .likert-opcion input[type="radio"]:checked + label {
+    border-color: var(--rojo); background: rgba(230,57,70,0.06);
+    box-shadow: 0 0 0 3px rgba(230,57,70,0.08);
+  }
+
+  .likert-opcion input[type="radio"]:checked + label .num { color: var(--rojo); }
+
+  .divider { height: 1px; background: rgba(45,27,14,0.07); margin: 24px 0; }
+
+  .btn-fila { display: flex; gap: 10px; margin-top: 28px; }
+
+  .btn {
+    flex: 1; padding: 15px; border: none; border-radius: 12px;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+
+  .btn-siguiente { background: var(--cafe); color: var(--crema); }
+  .btn-siguiente:hover { background: var(--cafe-medio); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,27,14,0.18); }
+
+  .btn-atras {
+    flex: 0 0 auto; padding: 15px 20px;
+    background: transparent; color: var(--cafe-medio);
+    border: 1.5px solid rgba(45,27,14,0.15);
+  }
+  .btn-atras:hover { border-color: var(--cafe); background: rgba(45,27,14,0.04); }
+
+  .btn-medir { background: var(--rojo); color: white; }
+  .btn-medir:hover { background: var(--rojo-oscuro); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(230,57,70,0.3); }
+
+  .btn-cancelar {
+    flex: 0 0 auto; padding: 15px 20px;
+    background: transparent; color: var(--cafe-claro);
+    border: 1.5px solid rgba(160,120,80,0.3);
+    font-size: 0.65rem;
+  }
+  .btn-cancelar:hover { border-color: var(--cafe-claro); background: rgba(160,120,80,0.06); }
+
+  .btn-manual { background: var(--cafe-medio); color: var(--crema); }
+  .btn-manual:hover { background: var(--cafe); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,27,14,0.2); }
+
+  .panel-manual {
+    display: none;
+    background: rgba(45,27,14,0.03);
+    border: 1.5px solid rgba(45,27,14,0.1);
+    border-radius: 16px;
+    padding: 24px 20px;
+    margin-bottom: 20px;
+    text-align: left;
+  }
+
+  .panel-manual .pasos {
+    font-size: 0.75rem; line-height: 2.2; color: var(--cafe-medio);
+    margin-bottom: 18px;
+  }
+  .panel-manual .pasos strong { color: var(--cafe); }
+
+  .manual-input-wrap {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 10px;
+  }
+
+  .manual-input-wrap input {
+    width: 90px; text-align: center; font-size: 1.3rem;
+    font-family: 'DM Serif Display', serif; padding: 12px 10px;
+    border-radius: 12px; border: 1.5px solid rgba(45,27,14,0.15);
+    background: var(--crema); color: var(--cafe); outline: none;
+  }
+  .manual-input-wrap input:focus { border-color: var(--rojo); box-shadow: 0 0 0 3px rgba(230,57,70,0.08); }
+  .manual-input-wrap span { font-size: 0.7rem; color: var(--cafe-medio); opacity: 0.7; line-height: 1.4; }
+
+  .bpm-calculado {
+    font-family: 'DM Serif Display', serif; font-size: 2.2rem;
+    color: var(--rojo); text-align: center; display: none; margin-bottom: 6px;
+  }
+  .bpm-calculado-lbl { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--cafe-medio); opacity: 0.6; text-align: center; display: none; margin-bottom: 16px; }
+
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+  .btn:active   { transform: translateY(0) !important; }
+
+  .camara-zona { text-align: center; }
+
+  .camara-preview {
+    position: relative;
+    width: 160px; height: 160px;
+    margin: 0 auto 22px; border-radius: 50%; overflow: hidden;
+    border: 3px solid rgba(230,57,70,0.2); background: var(--crema);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .camara-preview video { width: 100%; height: 100%; object-fit: cover; display: none; }
+
+  .camara-placeholder {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 8px; color: var(--cafe-medio); opacity: 0.4; font-size: 0.7rem;
+  }
+
+  .camara-placeholder svg { width: 36px; height: 36px; }
+
+  canvas { display: none; }
+
+  .instrucciones-camara {
+    background: rgba(230,57,70,0.04); border: 1px solid rgba(230,57,70,0.12);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;
+    font-size: 0.72rem; line-height: 1.8; color: var(--cafe-medio);
+  }
+
+  .instrucciones-camara strong { color: var(--rojo); font-weight: 500; }
+
+  .progreso-zona { display: none; margin-bottom: 20px; }
+
+  .progreso-info {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 10px;
+  }
+
+  .progreso-texto { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cafe-medio); }
+  .picos-contador { font-size: 1.4rem; font-family: 'DM Serif Display', serif; color: var(--rojo); }
+
+  .barra-fondo { height: 6px; background: rgba(45,27,14,0.08); border-radius: 100px; overflow: hidden; }
+  .barra-fill  { height: 100%; background: linear-gradient(90deg, var(--rojo-oscuro), var(--rojo)); border-radius: 100px; width: 0%; transition: width 0.4s ease; }
+
+  .signal-dots { display: none; justify-content: center; gap: 6px; margin: 16px 0; }
+
+  .signal-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--rojo); opacity: 0.2;
+    animation: pulsar 1.2s ease-in-out infinite;
+  }
+
+  .signal-dot:nth-child(2) { animation-delay: 0.2s; }
+  .signal-dot:nth-child(3) { animation-delay: 0.4s; }
+  .signal-dot:nth-child(4) { animation-delay: 0.6s; }
+  .signal-dot:nth-child(5) { animation-delay: 0.8s; }
+
+  .resultado { display: none; text-align: center; animation: aparecer 0.5s ease both; }
+
+  .resultado-numero { font-family: 'DM Serif Display', serif; font-size: 5rem; line-height: 1; color: var(--rojo); margin: 8px 0; }
+  .resultado-unidad { font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cafe-medio); opacity: 0.6; }
+
+  .resultado-estado {
+    display: inline-block; margin-top: 16px; padding: 6px 16px;
+    border-radius: 100px; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase;
+    background: rgba(230,57,70,0.08); color: var(--rojo); border: 1px solid rgba(230,57,70,0.2);
+  }
+
+  .error-msg {
+    display: none; background: rgba(230,57,70,0.06);
+    border: 1px solid rgba(230,57,70,0.2); border-radius: 10px;
+    padding: 12px 16px; font-size: 0.75rem; color: var(--rojo-oscuro);
+    margin-top: 16px;
+  }
+
+  .pantalla-final { text-align: center; }
+
+  .check-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(45,106,79,0.1);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px; font-size: 1.8rem;
+  }
+
+  .pantalla-final h2 { font-family: 'DM Serif Display', serif; font-size: 1.8rem; margin-bottom: 10px; }
+  .pantalla-final p  { font-size: 0.75rem; color: var(--cafe-medio); opacity: 0.7; line-height: 1.7; margin-bottom: 24px; }
+
+  .resumen-bpm {
+    background: rgba(230,57,70,0.05); border: 1px solid rgba(230,57,70,0.15);
+    border-radius: 16px; padding: 20px; margin-bottom: 20px;
+  }
+
+  .resumen-bpm .num { font-family: 'DM Serif Display', serif; font-size: 3.5rem; color: var(--rojo); line-height: 1; }
+  .resumen-bpm .lbl { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--cafe-medio); opacity: 0.5; margin-top: 6px; }
+
+  @keyframes bajar    { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes aparecer { from { opacity: 0; transform: scale(0.97); }      to { opacity: 1; transform: scale(1); } }
+  @keyframes pulsar   { 0%, 100% { opacity: 0.2; transform: scale(1); }  50% { opacity: 1; transform: scale(1.4); } }
+
+  .camara-preview.activa {
+    border-color: var(--rojo);
+    box-shadow: 0 0 0 4px rgba(230,57,70,0.12), 0 0 20px rgba(230,57,70,0.2);
+  }
+
+  .camara-preview.activa::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid rgba(230,57,70,0.4);
+    animation: ring 1.5s ease-out infinite;
+  }
+
+  @keyframes ring { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.1); opacity: 0; } }
+
+  footer {
+    text-align: center; margin-top: 36px; font-size: 0.65rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--cafe-medio); opacity: 0.4;
+  }
+
+  @media (max-width: 400px) {
+    .tarjeta { padding: 28px 20px; }
+    .grupo-fila { grid-template-columns: 1fr; }
+    .likert-grupo { gap: 5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="contenedor">
+
+  <header>
+    <div class="logo-icono">
+      <svg class="corazon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
+      </svg>
+    </div>
+    <h1>Bienestar &<br><em>Frecuencia</em> Cardíaca</h1>
+    <p class="subtitulo">Estudio de estrés universitario — Tijuana, B.C.</p>
+  </header>
+
+  <div class="progreso-global">
+    <div class="prog-paso activo" id="pp1"></div>
+    <div class="prog-paso"        id="pp2"></div>
+    <div class="prog-paso"        id="pp3"></div>
+    <div class="prog-paso"        id="pp4"></div>
+  </div>
+  <div class="prog-labels">
+    <span class="prog-label activo" id="pl1">Datos</span>
+    <span class="prog-label"        id="pl2">Hábitos</span>
+    <span class="prog-label"        id="pl3">Contexto</span>
+    <span class="prog-label"        id="pl4">Medición</span>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECCIÓN 1 — Datos personales
+  ══════════════════════════════════════ -->
+  <div class="tarjeta s1 visible" id="seccion-1">
+    <div class="seccion-header">
+      <div class="seccion-numero">01</div>
+      <div class="seccion-titulo">
+        <h2>Datos personales</h2>
+        <p>Información básica del participante</p>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="nombre">Nombre completo <span class="req">*</span></label>
+      <input type="text" id="nombre" placeholder="Ej. Juan García" autocomplete="off">
+    </div>
+
+    <div class="grupo-fila">
+      <div>
+        <label for="edad">Edad <span class="req">*</span></label>
+        <input type="number" id="edad" placeholder="Ej. 22" min="15" max="80">
+      </div>
+      <div>
+        <label for="genero">Género <span class="req">*</span></label>
+        <div class="select-wrap">
+          <select id="genero">
+            <option value="">Seleccionar...</option>
+            <option value="1">Masculino</option>
+            <option value="2">Femenino</option>
+            <option value="3">No binario</option>
+            <option value="4">Prefiero no decir</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="carrera">Carrera <span class="req">*</span></label>
+      <div class="select-wrap">
+      <select id="carrera">
+        <option value="">Seleccionar carrera...</option>
+        <optgroup label="Ingeniería y Tecnología">
+          <option value="101">Ing. Sistemas</option>
+          <option value="102">Ing. Software</option>
+          <option value="103">Ing. TIC</option>
+          <option value="104">Ing. Informática</option>
+          <option value="105">Industrial</option>
+          <option value="106">Logística</option>
+          <option value="107">Mecánica</option>
+          <option value="108">Electrónica</option>
+          <option value="109">Eléctrica</option>
+          <option value="110">Mecatrónica</option>
+          <option value="111">Biomédica</option>
+          <option value="112">Bioingeniería</option>
+          <option value="113">Aeroespacial</option>
+          <option value="114">Ambiental</option>
+          <option value="115">Energías</option>
+          <option value="116">Civil</option>
+          <option value="117">Química</option>
+          <option value="118">Nanotecnología</option>
+          <option value="119">Semiconductores</option>
+          <option value="120">Gestión</option>
+          <option value="199">Otra ingeniería</option>
+        </optgroup>
+        <optgroup label="Salud">
+          <option value="201">Medicina</option>
+          <option value="202">Enfermería</option>
+          <option value="203">Odontología</option>
+          <option value="204">Psicología</option>
+          <option value="205">Nutrición</option>
+          <option value="206">Fisioterapia</option>
+          <option value="207">Optometría</option>
+          <option value="208">Salud pública</option>
+          <option value="299">Otra salud</option>
+        </optgroup>
+        <optgroup label="Negocios y Derecho">
+          <option value="301">Administración</option>
+          <option value="302">Contabilidad</option>
+          <option value="303">Economía</option>
+          <option value="304">Mercadotecnia</option>
+          <option value="305">Negocios internacionales</option>
+          <option value="306">Comercio internacional</option>
+          <option value="307">Finanzas</option>
+          <option value="308">Derecho</option>
+          <option value="309">Relaciones internacionales</option>
+          <option value="310">Turismo</option>
+        </optgroup>
+        <optgroup label="Artes y Humanidades">
+          <option value="401">Arquitectura</option>
+          <option value="402">Diseño gráfico</option>
+          <option value="403">Diseño industrial</option>
+          <option value="404">Comunicación</option>
+          <option value="405">Artes</option>
+          <option value="406">Música</option>
+          <option value="407">Teatro</option>
+          <option value="408">Educación</option>
+          <option value="409">Idiomas</option>
+          <option value="410">Historia</option>
+          <option value="411">Filosofía</option>
+        </optgroup>
+        <optgroup label="Ciencias Sociales">
+          <option value="501">Sociología</option>
+          <option value="502">Ciencias políticas</option>
+          <option value="503">Administración pública</option>
+        </optgroup>
+        <optgroup label="Ciencias">
+          <option value="601">Biología</option>
+          <option value="602">Ciencias del mar</option>
+          <option value="603">Química</option>
+          <option value="604">Física</option>
+          <option value="605">Matemáticas</option>
+        </optgroup>
+        <optgroup label="Agropecuarias">
+          <option value="701">Agronomía</option>
+          <option value="702">Veterinaria</option>
+          <option value="703">Producción animal</option>
+        </optgroup>
+        <option value="999">Otra</option>
+      </select>
+      </div>
+    </div>
+
+    <div class="grupo-fila">
+      <div>
+        <label for="estatura">Estatura (cm) <span class="req">*</span></label>
+        <input type="number" id="estatura" placeholder="Ej. 170" min="100" max="250">
+      </div>
+      <div>
+        <label for="peso">Peso (kg) <span class="req">*</span></label>
+        <input type="number" id="peso" placeholder="Ej. 65" min="30" max="250">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grupo">
+      <label for="situacion_laboral">Situación laboral <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="situacion_laboral">
+          <option value="">Seleccionar...</option>
+          <option value="1">Solo estudio</option>
+          <option value="2">Estudio y trabajo medio tiempo</option>
+          <option value="3">Estudio y trabajo tiempo completo</option>
+          <option value="4">Estudio y trabajo en maquiladora</option>
+          <option value="5">Estudio y trabajo freelance</option>
+          <option value="6">Estudio y tengo negocio propio</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo-fila">
+      <div>
+        <label for="estado_civil">Estado civil <span class="req">*</span></label>
+        <div class="select-wrap">
+          <select id="estado_civil">
+            <option value="">Seleccionar...</option>
+            <option value="1">Soltero/a</option>
+            <option value="2">En pareja (sin vivir juntos)</option>
+            <option value="3">Unión libre</option>
+            <option value="4">Casado/a</option>
+            <option value="5">Divorciado/a</option>
+            <option value="6">Viudo/a</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="vive_con">Vive con <span class="req">*</span></label>
+        <div class="select-wrap">
+          <select id="vive_con">
+            <option value="">Seleccionar...</option>
+            <option value="1">Solo/a</option>
+            <option value="2">Con padres / familia</option>
+            <option value="3">Con pareja</option>
+            <option value="4">Con pareja e hijos</option>
+            <option value="5">Con compañeros de cuarto</option>
+            <option value="6">Con otro familiar</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="lugar_origen">Lugar de residencia <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="lugar_origen">
+          <option value="">Seleccionar...</option>
+          <option value="1">Tijuana, B.C.</option>
+          <option value="2">Ensenada, B.C.</option>
+          <option value="3">Mexicali, B.C.</option>
+          <option value="4">Rosarito, B.C.</option>
+          <option value="5">Tecate, B.C.</option>
+          <option value="6">Otro municipio de B.C.</option>
+          <option value="7">Otro estado de México</option>
+          <option value="8">Otro país</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="tiene_hijos">¿Tienes hijos? <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="tiene_hijos">
+          <option value="">Seleccionar...</option>
+          <option value="1">No</option>
+          <option value="2">Sí, 1 hijo/a</option>
+          <option value="3">Sí, 2 hijos/as</option>
+          <option value="4">Sí, 3 o más</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btn-fila">
+      <button class="btn btn-siguiente" onclick="irSeccion(2)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECCIÓN 2 — Hábitos diarios
+  ══════════════════════════════════════ -->
+  <div class="tarjeta s2" id="seccion-2">
+    <div class="seccion-header">
+      <div class="seccion-numero">02</div>
+      <div class="seccion-titulo">
+        <h2>Hábitos diarios</h2>
+        <p>Rutinas y comportamientos del día a día</p>
+      </div>
+    </div>
+
+    <div class="grupo-fila">
+      <div>
+        <label for="comidas">Comidas al día <span class="req">*</span></label>
+        <input type="number" id="comidas" placeholder="Ej. 3" min="0" max="10">
+      </div>
+      <div>
+        <label for="cafe">Café / energéticas (tazas/latas) <span class="req">*</span></label>
+        <input type="number" id="cafe" placeholder="Ej. 2" min="0" max="20">
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="sueno">Horas de sueño la noche anterior <span class="req">*</span></label>
+      <input type="number" id="sueno" placeholder="Ej. 7" min="0" max="24" step="0.5">
+    </div>
+
+    <div class="grupo">
+      <label for="calidad_sueno">Calidad del sueño en general <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="calidad_sueno">
+          <option value="">Seleccionar...</option>
+          <option value="1">Muy buena — duermo profundo y descanso bien</option>
+          <option value="2">Buena — generalmente descanso bien</option>
+          <option value="3">Regular — a veces me desvelo o me levanto cansado</option>
+          <option value="4">Mala — frecuentemente duermo mal o poco</option>
+          <option value="5">Muy mala — casi no duermo o el sueño no descansa</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="tipo_alimentacion">Tipo de alimentación predominante <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="tipo_alimentacion">
+          <option value="">Seleccionar...</option>
+          <option value="1">Comida casera / preparada en casa</option>
+          <option value="2">Comida rápida / fast food frecuente</option>
+          <option value="3">Mixta — combinación de ambas</option>
+          <option value="4">Dieta balanceada / saludable intencional</option>
+          <option value="5">Comida universitaria / económica</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grupo">
+      <label>¿Realizas actividad física? <span class="req">*</span></label>
+      <div class="toggle-grupo">
+        <div class="toggle-opcion">
+          <input type="radio" name="actividad" id="act-si" value="si">
+          <label for="act-si">✓ Sí</label>
+        </div>
+        <div class="toggle-opcion">
+          <input type="radio" name="actividad" id="act-no" value="no">
+          <label for="act-no">✗ No</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="grupo" id="tipo-actividad-grupo" style="display:none">
+      <label for="tipo_actividad">Tipo de actividad física <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="tipo_actividad">
+          <option value="">Seleccionar...</option>
+          <option value="1">Gimnasio / pesas</option>
+          <option value="2">Correr / cardio</option>
+          <option value="3">Fútbol u otro deporte de equipo</option>
+          <option value="4">Natación</option>
+          <option value="5">Yoga / Pilates</option>
+          <option value="6">CrossFit / entrenamiento funcional</option>
+          <option value="7">Caminata</option>
+          <option value="8">Artes marciales / box</option>
+          <option value="9">Otro</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo-fila" id="detalle-actividad" style="display:none">
+      <div>
+        <label for="horas_actividad">Horas de actividad al día</label>
+        <input type="number" id="horas_actividad" placeholder="Ej. 1" min="0" max="12" step="0.5">
+      </div>
+      <div>
+        <label for="frecuencia_actividad">Días por semana</label>
+        <input type="number" id="frecuencia_actividad" placeholder="Ej. 3" min="0" max="7">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grupo">
+      <label for="consumo_alcohol">Consumo de alcohol <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="consumo_alcohol">
+          <option value="">Seleccionar...</option>
+          <option value="1">No consumo</option>
+          <option value="2">Ocasionalmente (días festivos / eventos)</option>
+          <option value="3">Fines de semana</option>
+          <option value="4">1-2 veces por semana</option>
+          <option value="5">3 o más veces por semana</option>
+          <option value="6">Diariamente</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="consumo_tabaco">Consumo de tabaco <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="consumo_tabaco">
+          <option value="">Seleccionar...</option>
+          <option value="1">No fumo</option>
+          <option value="2">Ex fumador/a</option>
+          <option value="3">Fumador/a social (ocasional)</option>
+          <option value="4">Fumador/a moderado (menos de 5 al día)</option>
+          <option value="5">Fumador/a habitual (5-10 al día)</option>
+          <option value="6">Fumador/a intenso (más de 10 al día)</option>
+          <option value="7">Solo vape / cigarro electrónico</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="cruza_frontera">¿Cruzas la frontera hacia EE.UU. regularmente? <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="cruza_frontera">
+          <option value="">Seleccionar...</option>
+          <option value="1">No cruzo</option>
+          <option value="2">Rara vez (menos de una vez al mes)</option>
+          <option value="3">Una vez al mes</option>
+          <option value="4">Una o más veces por semana</option>
+          <option value="5">Diariamente (trabajo o estudia en EE.UU.)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="tiempo_traslado">Tiempo de traslado diario a la universidad <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="tiempo_traslado">
+          <option value="">Seleccionar...</option>
+          <option value="1">Menos de 15 minutos</option>
+          <option value="2">15 a 30 minutos</option>
+          <option value="3">30 a 60 minutos</option>
+          <option value="4">1 a 2 horas</option>
+          <option value="5">Más de 2 horas</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btn-fila">
+      <button class="btn btn-atras" onclick="irSeccion(1)">← Atrás</button>
+      <button class="btn btn-siguiente" onclick="irSeccion(3)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECCIÓN 3 — Contexto actual
+  ══════════════════════════════════════ -->
+  <div class="tarjeta s3" id="seccion-3">
+    <div class="seccion-header">
+      <div class="seccion-numero">03</div>
+      <div class="seccion-titulo">
+        <h2>Contexto actual</h2>
+        <p>Situación académica, económica y psicológica</p>
+      </div>
+    </div>
+
+    <div class="grupo-fila">
+      <div>
+        <label for="tareas_pendientes">Tareas / entregas pendientes hoy <span class="req">*</span></label>
+        <input type="number" id="tareas_pendientes" placeholder="Ej. 3" min="0" max="50">
+      </div>
+      <div>
+        <label for="semestre">Semestre actual <span class="req">*</span></label>
+        <div class="select-wrap">
+          <select id="semestre">
+            <option value="">Sem...</option>
+            <option value="1">1°</option>
+            <option value="2">2°</option>
+            <option value="3">3°</option>
+            <option value="4">4°</option>
+            <option value="5">5°</option>
+            <option value="6">6°</option>
+            <option value="7">7°</option>
+            <option value="8">8°</option>
+            <option value="9">9°</option>
+            <option value="10">10° o más</option>
+            <option value="11">Postgrado</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="nivel_ingresos">Nivel de ingresos mensual familiar <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="nivel_ingresos">
+          <option value="">Seleccionar rango...</option>
+          <option value="1">Menos de $5,000 MXN</option>
+          <option value="2">$5,000 – $10,000 MXN</option>
+          <option value="3">$10,000 – $20,000 MXN</option>
+          <option value="4">$20,000 – $40,000 MXN</option>
+          <option value="5">$40,000 – $70,000 MXN</option>
+          <option value="6">Más de $70,000 MXN</option>
+          <option value="usd">Ingreso principalmente en USD</option>
+          <option value="0">Prefiero no decir</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="fuente_ingresos">Fuente principal de ingresos del hogar <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="fuente_ingresos">
+          <option value="">Seleccionar...</option>
+          <option value="1">Padres / familia</option>
+          <option value="2">Trabajo propio</option>
+          <option value="3">Beca</option>
+          <option value="4">Trabajo propio + apoyo familiar</option>
+          <option value="5">Remesas del extranjero</option>
+          <option value="6">Negocio familiar</option>
+          <option value="7">Trabajo en maquiladora</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grupo">
+      <label>¿Tienes antecedentes médicos cardíacos? <span class="req">*</span></label>
+      <div class="toggle-grupo">
+        <div class="toggle-opcion">
+          <input type="radio" name="cardiacos" id="card-si" value="si">
+          <label for="card-si">✓ Sí</label>
+        </div>
+        <div class="toggle-opcion">
+          <input type="radio" name="cardiacos" id="card-no" value="no">
+          <label for="card-no">✗ No</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="condicion_medica">¿Tienes alguna condición médica diagnosticada? <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="condicion_medica">
+          <option value="">Seleccionar...</option>
+          <option value="1">Ninguna</option>
+          <option value="2">Diabetes</option>
+          <option value="3">Hipertensión</option>
+          <option value="4">Trastorno de ansiedad</option>
+          <option value="5">Depresión</option>
+          <option value="6">TDAH</option>
+          <option value="7">Problemas de tiroides</option>
+          <option value="8">Asma</option>
+          <option value="9">Otra</option>
+          <option value="10">Prefiero no decir</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label>¿Asistes a terapia psicológica? <span class="req">*</span></label>
+      <div class="toggle-grupo">
+        <div class="toggle-opcion">
+          <input type="radio" name="terapia" id="ter-si" value="si">
+          <label for="ter-si">✓ Sí</label>
+        </div>
+        <div class="toggle-opcion">
+          <input type="radio" name="terapia" id="ter-no" value="no">
+          <label for="ter-no">✗ No</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="red_apoyo">Red de apoyo social <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="red_apoyo">
+          <option value="">Seleccionar...</option>
+          <option value="1">Muy buena — tengo familia y amigos cercanos con quienes contar</option>
+          <option value="2">Buena — tengo algunas personas de confianza</option>
+          <option value="3">Limitada — pocas personas con quienes hablar</option>
+          <option value="4">Muy limitada — me siento solo/a la mayor parte del tiempo</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grupo">
+      <label>¿Cómo te sientes emocionalmente hoy? <span class="req">*</span></label>
+      <div class="likert-grupo">
+        <div class="likert-opcion">
+          <input type="radio" name="valoracion_psicologica" id="val-1" value="1">
+          <label for="val-1"><span class="num">1</span><span class="txt">Muy bien</span></label>
+        </div>
+        <div class="likert-opcion">
+          <input type="radio" name="valoracion_psicologica" id="val-2" value="2">
+          <label for="val-2"><span class="num">2</span><span class="txt">Bien</span></label>
+        </div>
+        <div class="likert-opcion">
+          <input type="radio" name="valoracion_psicologica" id="val-3" value="3">
+          <label for="val-3"><span class="num">3</span><span class="txt">Regular</span></label>
+        </div>
+        <div class="likert-opcion">
+          <input type="radio" name="valoracion_psicologica" id="val-4" value="4">
+          <label for="val-4"><span class="num">4</span><span class="txt">Mal</span></label>
+        </div>
+        <div class="likert-opcion">
+          <input type="radio" name="valoracion_psicologica" id="val-5" value="5">
+          <label for="val-5"><span class="num">5</span><span class="txt">Muy mal</span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label>Nivel de estrés percibido ahora mismo <span class="req">*</span></label>
+      <div class="likert-grupo">
+        <div class="likert-opcion">
+          <input type="radio" name="nivel_estres" id="est-1" value="1">
+          <label for="est-1"><span class="num">1</span><span class="txt">Ninguno</span></label>
+        </div>
+        <div class="likert-opcion">
+          <input type="radio" name="nivel_estres" id="est-2" value="2">
+          <label for="est-2"><span class="num">2</span><span class="txt">Leve</span></label>
+        </div>
+        <div class="likert-opcion">
+          <input type="radio" name="nivel_estres" id="est-3" value="3">
+          <label for="est-3"><span class="num">3</span><span class="txt">Moderado</span></label>
+        </div>
+        <div class="likert-opcion">
+          <input type="radio" name="nivel_estres" id="est-4" value="4">
+          <label for="est-4"><span class="num">4</span><span class="txt">Alto</span></label>
+        </div>
+        <div class="likert-opcion">
+          <input type="radio" name="nivel_estres" id="est-5" value="5">
+          <label for="est-5"><span class="num">5</span><span class="txt">Severo</span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="grupo">
+      <label for="principal_estresor">Principal fuente de estrés actualmente <span class="req">*</span></label>
+      <div class="select-wrap">
+        <select id="principal_estresor">
+          <option value="">Seleccionar...</option>
+          <option value="1">Carga académica / exámenes</option>
+          <option value="2">Situación económica / dinero</option>
+          <option value="3">Problemas familiares</option>
+          <option value="4">Trabajo / empleo</option>
+          <option value="5">Relaciones sociales / amorosas</option>
+          <option value="6">Salud propia o de un familiar</option>
+          <option value="7">Inseguridad / entorno social</option>
+          <option value="8">Tiempos de traslado / tráfico</option>
+          <option value="9">Proceso migratorio / visa / documentos</option>
+          <option value="10">No tengo un estresor principal ahora</option>
+          <option value="11">Otro</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btn-fila">
+      <button class="btn btn-atras" onclick="irSeccion(2)">← Atrás</button>
+      <button class="btn btn-siguiente" onclick="irSeccion(4)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SECCIÓN 4 — Medición cardíaca
+  ══════════════════════════════════════ -->
+  <div class="tarjeta s4" id="seccion-4">
+    <div class="seccion-header">
+      <div class="seccion-numero">04</div>
+      <div class="seccion-titulo">
+        <h2>Medición cardíaca</h2>
+        <p>Frecuencia cardíaca en reposo</p>
+      </div>
+    </div>
+
+    <div class="camara-zona">
+      <div class="camara-preview" id="camara-preview">
+        <video id="video" playsinline autoplay muted></video>
+        <div class="camara-placeholder" id="placeholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span>Cámara</span>
+        </div>
+      </div>
+
+      <!-- canvas oculto para capturar frames -->
+      <canvas id="canvas" width="100" height="100"></canvas>
+
+      <div class="instrucciones-camara" id="instrucciones-camara">
+        <strong>① </strong> Presiona "Iniciar medición"<br>
+        <strong>② </strong> Acepta el permiso de cámara<br>
+        <strong>③ </strong> Cubre la cámara trasera con tu dedo índice<br>
+        <strong>④ </strong> Mantén el dedo quieto hasta que se detecten 5 latidos
+      </div>
+
+      <!-- Zona de progreso: muestra picos detectados en lugar de cuenta regresiva -->
+      <div class="progreso-zona" id="progreso-zona">
+        <div class="progreso-info">
+          <span class="progreso-texto" id="progreso-texto">Capturando señal...</span>
+          <span class="picos-contador" id="picos-contador">0/5</span>
+        </div>
+        <div class="barra-fondo">
+          <div class="barra-fill" id="barra-fill"></div>
+        </div>
+      </div>
+
+      <div class="signal-dots" id="signal-dots">
+        <div class="signal-dot"></div>
+        <div class="signal-dot"></div>
+        <div class="signal-dot"></div>
+        <div class="signal-dot"></div>
+        <div class="signal-dot"></div>
+      </div>
+
+      <div class="resultado" id="resultado">
+        <p class="resultado-unidad">Tu frecuencia cardíaca</p>
+        <p class="resultado-numero" id="bpm-numero">--</p>
+        <p class="resultado-unidad">pulsaciones por minuto</p>
+        <span class="resultado-estado" id="resultado-estado"></span>
+        <canvas id="grafica-pulso" width="400" height="120" style="display:none; width:100%; margin-top:16px; border-radius:12px; background:#f8f4ef;"></canvas>
+      </div>
+
+      <div class="error-msg" id="error-msg"></div>
+
+      <!-- Botón cancelar y aviso de imprecisión (visible solo durante captura) -->
+      <div style="text-align:center; margin-bottom:8px;">
+        <button class="btn btn-cancelar" id="btn-cancelar" style="display:none; width:auto;"
+                onclick="cancelarYManual()">
+          Detener y medir manualmente
+        </button>
+        <div id="aviso-imprecision" style="display:none; margin-top:8px; font-size:0.75rem; color:#e07a5f; font-weight:500;">
+          ⚠ La medición por cámara está siendo imprecisa
+        </div>
+      </div>
+
+      <!-- Panel de medición manual -->
+      <div class="panel-manual" id="panel-manual">
+        <div style="margin-bottom:14px;">
+          <p style="font-family:'DM Serif Display',serif; font-size:1.1rem; margin-bottom:4px;"
+             id="panel-manual-titulo">Mide tu pulso manualmente</p>
+          <p style="font-size:0.7rem; color:var(--cafe-medio); opacity:0.7;"
+             id="panel-manual-desc">Para comparar ambas mediciones, también necesitamos tu pulso manual.</p>
+        </div>
+        <div class="pasos">
+          <strong>① </strong> Coloca dos dedos sobre tu cuello (arteria carótida) o muñeca<br>
+          <strong>② </strong> Presiona el botón y cuenta tus latidos durante <strong>10 segundos</strong><br>
+          <strong>③ </strong> Ingresa el número de latidos que contaste
+        </div>
+
+        <div style="text-align:center; margin-bottom:16px;">
+          <button class="btn btn-medir" id="btn-cronometro" onclick="iniciarCronometro()"
+                  style="width:auto; padding:12px 28px;">
+            ▶ Iniciar 10 segundos
+          </button>
+          <button type="button" id="btn-reintentar" class="btn-secundario" onclick="reintentarCamara()">
+            Volver a medir con la cámara
+          </button>
+          <div id="cronometro-display" style="font-family:'DM Serif Display',serif; font-size:2.5rem;
+               color:var(--rojo); margin-top:10px; display:none;">10</div>
+        </div>
+
+        <div class="manual-input-wrap">
+          <input type="number" id="latidos-manual" placeholder="0" min="1" max="40"
+                 oninput="calcularBpmManual()" inputmode="numeric">
+          <span>latidos contados<br>en 10 segundos</span>
+        </div>
+
+        <div class="bpm-calculado"    id="bpm-calculado"></div>
+        <div class="bpm-calculado-lbl" id="bpm-calculado-lbl">pulsaciones por minuto</div>
+
+
+        <button class="btn btn-siguiente" id="btn-confirmar-manual"
+                style="display:none; width:100%; margin-top:4px;"
+                onclick="confirmarManual()">
+          Confirmar y continuar →
+        </button>
+      </div>
+
+      <div class="btn-fila">
+        <button class="btn btn-atras" id="btn-atras-4" onclick="irSeccion(3)">← Atrás</button>
+        <button class="btn btn-medir" id="btn-medir" onclick="iniciarMedicion()">Iniciar medición</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PANTALLA FINAL
+  ══════════════════════════════════════ -->
+  <div class="tarjeta" id="seccion-5">
+    <div class="pantalla-final">
+      <div class="check-icon">✓</div>
+      <h2>¡Gracias por participar!</h2>
+      <p>Tus datos han sido registrados y contribuirán al estudio sobre bienestar y estrés académico en Tijuana.</p>
+      <div class="resumen-bpm">
+        <div class="num" id="final-bpm">--</div>
+        <div class="lbl">BPM cámara</div>
+      </div>
+      <div class="resumen-bpm" id="resumen-manual-wrap" style="display:none; margin-top:10px;">
+        <div class="num" id="final-bpm-manual" style="font-size:2.6rem;">--</div>
+        <div class="lbl">BPM manual</div>
+      </div>
+      <button class="btn btn-siguiente" onclick="reiniciar()" style="width:100%">Nueva medición</button>
+    </div>
+  </div>
+
+  <footer>AVResolutions © 2026 — Datos confidenciales para uso académico · Tijuana, B.C.</footer>
+</div>
+
+<script>
+  // ─────────────────────────────────────────
+  // CONSTANTES
+  // ─────────────────────────────────────────
+  const API_URL        = '/api/medir';
+  const FPS            = 30;
+  const INTERVALO_ENVIO_MS = 10000; // Enviar al backend cada 2 segundos
+
+  // ─────────────────────────────────────────
+  // ESTADO GLOBAL DE MEDICIÓN
+  // ─────────────────────────────────────────
+  let stream        = null;  // MediaStream de la cámara
+  let intervalo     = null;  // setInterval para captura de frames
+  let reintento     = null;  // setTimeout para el próximo envío al backend
+  let capturando    = false; // true mientras la cámara está activa
+  let valoresRojos  = [];    // buffer de valores R acumulados
+  let picosCliente  = 0;     // picos detectados localmente en tiempo real
+  let bpmCamara     = null;  // BPM obtenido por cámara (null si no se obtuvo)
+  let bpmManual     = null;  // BPM obtenido manualmente (null si no se obtuvo)
+  // modoMedicion: 'camara_ok' | 'usuario_cancelo' | 'solo_manual'
+  let modoMedicion  = null;
+  let tiempoInicio  = null;  // Timestamp de inicio de medición
+  let mostroAviso   = false; // Flag para evitar mostrar el aviso múltiples veces
+
+  // ─────────────────────────────────────────
+  // TOGGLE ACTIVIDAD FÍSICA
+  // ─────────────────────────────────────────
+  document.querySelectorAll('input[name="actividad"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const activo = document.querySelector('input[name="actividad"]:checked')?.value === 'si';
+      document.getElementById('tipo-actividad-grupo').style.display = activo ? 'block' : 'none';
+      document.getElementById('detalle-actividad').style.display    = activo ? 'grid'  : 'none';
+    });
+  });
+
+  // ─────────────────────────────────────────
+  // NAVEGACIÓN ENTRE SECCIONES
+  // ─────────────────────────────────────────
+  function irSeccion(num) {
+    if (num > 1 && num <= 4 && !validarSeccion(num - 1)) return;
+    document.querySelectorAll('.tarjeta').forEach(t => t.classList.remove('visible'));
+    document.getElementById('seccion-' + num).classList.add('visible');
+    actualizarProgreso(num);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Al llegar a la pantalla final, mostrar ambos valores si existen
+    if (num === 5) {
+      const camWrap  = document.querySelector('.resumen-bpm');
+      const manWrap  = document.getElementById('resumen-manual-wrap');
+      const camEl    = document.getElementById('final-bpm');
+      const manEl    = document.getElementById('final-bpm-manual');
+
+      if (bpmCamara !== null) {
+        camEl.textContent  = bpmCamara;
+        camWrap.style.display = 'block';
+      } else {
+        camWrap.style.display = 'none';
+      }
+
+      if (bpmManual !== null) {
+        manEl.textContent  = bpmManual;
+        manWrap.style.display = 'block';
+      } else {
+        manWrap.style.display = 'none';
+      }
+    }
+  }
+
+  function actualizarProgreso(sec) {
+    for (let i = 1; i <= 4; i++) {
+      const p = document.getElementById('pp' + i);
+      const l = document.getElementById('pl' + i);
+      p.className = 'prog-paso';
+      l.className = 'prog-label';
+      if (i < sec)        { p.classList.add('completado'); l.classList.add('completado'); }
+      else if (i === sec) { p.classList.add('activo');     l.classList.add('activo'); }
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // VALIDACIONES POR SECCIÓN
+  // ─────────────────────────────────────────
+  function validarSeccion(num) {
+    const err = (msg) => { alert(msg); return false; };
+    const v   = (id)  => document.getElementById(id)?.value?.trim();
+    const rc  = (name) => !!document.querySelector(`input[name="${name}"]:checked`);
+
+    if (num === 1) {
+      if (!v('nombre'))            return err('Por favor ingresa tu nombre.');
+      if (!v('edad'))              return err('Por favor ingresa tu edad.');
+      if (!v('genero'))            return err('Por favor selecciona tu género.');
+      if (!v('carrera'))           return err('Por favor selecciona tu carrera.');
+      if (!v('estatura'))          return err('Por favor ingresa tu estatura.');
+      if (!v('peso'))              return err('Por favor ingresa tu peso.');
+      if (!v('situacion_laboral')) return err('Por favor selecciona tu situación laboral.');
+      if (!v('estado_civil'))      return err('Por favor selecciona tu estado civil.');
+      if (!v('vive_con'))          return err('Por favor selecciona con quién vives.');
+      if (!v('lugar_origen'))      return err('Por favor selecciona tu lugar de origen.');
+      if (!v('tiene_hijos'))       return err('Por favor indica si tienes hijos.');
+    }
+    if (num === 2) {
+      if (!v('comidas'))           return err('Por favor ingresa el número de comidas.');
+      if (document.getElementById('cafe').value === '') return err('Por favor ingresa el consumo de café.');
+      if (!v('sueno'))             return err('Por favor ingresa las horas de sueño.');
+      if (!v('calidad_sueno'))     return err('Por favor selecciona la calidad de tu sueño.');
+      if (!v('tipo_alimentacion')) return err('Por favor selecciona tu tipo de alimentación.');
+      if (!rc('actividad'))        return err('Por favor indica si realizas actividad física.');
+      if (!v('consumo_alcohol'))   return err('Por favor indica tu consumo de alcohol.');
+      if (!v('consumo_tabaco'))    return err('Por favor indica tu consumo de tabaco.');
+      if (!v('cruza_frontera'))    return err('Por favor indica si cruzas la frontera.');
+      if (!v('tiempo_traslado'))   return err('Por favor indica tu tiempo de traslado.');
+    }
+    if (num === 3) {
+      if (document.getElementById('tareas_pendientes').value === '') return err('Por favor ingresa las tareas pendientes.');
+      if (!v('semestre'))               return err('Por favor selecciona tu semestre.');
+      if (!v('nivel_ingresos'))         return err('Por favor selecciona el nivel de ingresos.');
+      if (!v('fuente_ingresos'))        return err('Por favor selecciona la fuente de ingresos.');
+      if (!rc('cardiacos'))             return err('Por favor responde sobre antecedentes cardíacos.');
+      if (!v('condicion_medica'))       return err('Por favor indica si tienes alguna condición médica.');
+      if (!rc('terapia'))               return err('Por favor responde sobre terapia psicológica.');
+      if (!v('red_apoyo'))              return err('Por favor selecciona tu red de apoyo social.');
+      if (!rc('valoracion_psicologica')) return err('Por favor indica cómo te sientes hoy.');
+      if (!rc('nivel_estres'))          return err('Por favor indica tu nivel de estrés actual.');
+      if (!v('principal_estresor'))     return err('Por favor selecciona tu principal fuente de estrés.');
+    }
+    return true;
+  }
+
+  // ─────────────────────────────────────────
+  // HELPER: construye el payload del formulario
+  // ─────────────────────────────────────────
+  function prepararPayload() {
+    const v  = (id)   => document.getElementById(id)?.value?.trim();
+    const rc = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
+    return {
+      // Sección 1
+      nombre:            v('nombre'),
+      edad:              parseInt(v('edad')),
+      genero:            v('genero'),
+      carrera:           v('carrera'),
+      estatura:          parseFloat(v('estatura')),
+      peso:              parseFloat(v('peso')),
+      situacion_laboral: v('situacion_laboral'),
+      estado_civil:      v('estado_civil'),
+      vive_con:          v('vive_con'),
+      lugar_origen:      v('lugar_origen'),
+      tiene_hijos:       v('tiene_hijos'),
+      // Sección 2
+      comidas:              parseInt(v('comidas')),
+      cafe:                 parseInt(document.getElementById('cafe').value) || 0,
+      sueno:                parseFloat(v('sueno')),
+      calidad_sueno:        v('calidad_sueno'),
+      tipo_alimentacion:    v('tipo_alimentacion'),
+      actividad_fisica:     rc('actividad') || 'no',
+      tipo_actividad:       v('tipo_actividad') || 'ninguna',
+      horas_actividad:      parseFloat(document.getElementById('horas_actividad').value) || 0,
+      frecuencia_actividad: parseInt(document.getElementById('frecuencia_actividad').value) || 0,
+      consumo_alcohol:      v('consumo_alcohol'),
+      consumo_tabaco:       v('consumo_tabaco'),
+      cruza_frontera:       v('cruza_frontera'),
+      tiempo_traslado:      v('tiempo_traslado'),
+      // Sección 3
+      tareas_pendientes:       parseInt(document.getElementById('tareas_pendientes').value) || 0,
+      semestre:                parseInt(v('semestre')),
+      nivel_ingresos:          v('nivel_ingresos'),
+      fuente_ingresos:         v('fuente_ingresos'),
+      antecedentes_cardiacos:  rc('cardiacos') || 'no',
+      condicion_medica:        v('condicion_medica'),
+      terapia:                 rc('terapia') || 'no',
+      red_apoyo:               v('red_apoyo'),
+      valoracion_psicologica:  parseInt(rc('valoracion_psicologica')) || 3,
+      nivel_estres:            parseInt(rc('nivel_estres')) || 3,
+      principal_estresor:      v('principal_estresor'),
+      // Señal acumulada hasta este momento
+      valores_rojos: valoresRojos,
+      // Medición cardíaca
+      bpm_camara:    bpmCamara,
+      bpm_manual:    bpmManual,
+      modo_medicion: modoMedicion
+    };
+  }
+
+  // ─────────────────────────────────────────
+  // PASO 1 — Iniciar cámara
+  // ─────────────────────────────────────────
+  async function iniciarMedicion() {
+    const btn = document.getElementById('btn-medir');
+    btn.disabled = true;
+    btn.textContent = 'Iniciando cámara...';
+    document.getElementById('error-msg').style.display = 'none';
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+      video.style.display = 'block';
+      document.getElementById('placeholder').style.display = 'none';
+      document.getElementById('camara-preview').classList.add('activa');
+
+      const flashOk = await intentarActivarFlash();
+      if (!flashOk) {
+        mostrarInstruccionesFlash();
+        return;
+      }
+
+      iniciarCaptura();
+
+    } catch (err) {
+      mostrarError('No se pudo acceder a la cámara. Asegúrate de dar permiso.');
+      btn.disabled = false;
+      btn.textContent = 'Intentar de nuevo';
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // PASO 2 — Intentar activar flash/linterna
+  // ─────────────────────────────────────────
+  async function intentarActivarFlash() {
+    try {
+      const track = stream.getVideoTracks()[0];
+      const caps  = track.getCapabilities();
+      if (caps.torch) {
+        await track.applyConstraints({ advanced: [{ torch: true }] });
+        return true;
+      }
+      return false;
+    } catch (e) { return false; }
+  }
+
+  function mostrarInstruccionesFlash() {
+    const esAndroid = /android/i.test(navigator.userAgent);
+    const esIOS     = /iphone|ipad/i.test(navigator.userAgent);
+
+    const txt = esAndroid
+      ? `<strong>⚡ Activa el flash manualmente</strong><br><br><div style="text-align:left;line-height:2">1. Desliza hacia abajo para abrir <strong>Configuración rápida</strong><br>2. Toca el ícono de <strong>Linterna 🔦</strong><br>3. Vuelve y presiona <strong>"Ya activé el flash"</strong></div>`
+      : esIOS
+      ? `<strong>⚡ Activa el flash manualmente</strong><br><br><div style="text-align:left;line-height:2">1. Desliza desde la esquina superior derecha<br>2. Mantén presionado <strong>Linterna 🔦</strong><br>3. Vuelve y presiona <strong>"Ya activé el flash"</strong></div>`
+      : `<strong>⚡ Activa la linterna de tu celular</strong><br><br>Luego presiona <strong>"Ya activé el flash"</strong>`;
+
+    mostrarError(txt);
+    const btn = document.getElementById('btn-medir');
+    btn.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Ya activé el flash ✓';
+    btn.onclick = () => {
+      document.getElementById('error-msg').style.display = 'none';
+      document.getElementById('instrucciones-camara').style.display = 'none';
+      btn.style.display = 'none';
+      iniciarCaptura();
+    };
+  }
+
+  // ─────────────────────────────────────────
+  // PASO 3 — Iniciar captura de frames
+  //           + primer envío después de 3 seg
+  // ─────────────────────────────────────────
+  function iniciarCaptura() {
+    document.getElementById('instrucciones-camara').style.display = 'none';
+    document.getElementById('progreso-zona').style.display  = 'block';
+    document.getElementById('signal-dots').style.display    = 'flex';
+    document.getElementById('btn-medir').style.display      = 'none';
+    document.getElementById('btn-atras-4').style.display    = 'none';
+    document.getElementById('btn-cancelar').style.display   = 'inline-block';
+    document.getElementById('resultado').style.display      = 'none';
+    document.getElementById('resultado-estado').textContent = 'Coloca el dedo sobre la cámara...';
+    document.getElementById('aviso-imprecision').style.display = 'none';
+
+    valoresRojos = [];
+    picosCliente = 0;
+    capturando   = true;
+    mostroAviso  = false;
+    tiempoInicio = Date.now();
+
+    // Empezar a capturar frames inmediatamente
+    capturarFrames();
+
+    // Mostrar aviso a los 15 segundos si no hay 5 picos válidos, pero seguir grabando
+    reintento = setTimeout(() => {
+      if (capturando && picosCliente < 5) {
+        mostrarAvisoImprecision();
+      }
+    }, 15000);
+  }
+
+  // ─────────────────────────────────────────
+  // CAPTURA CONTINUA DE FRAMES (canal rojo)
+  // ─────────────────────────────────────────
+  function capturarFrames() {
+    const canvas = document.getElementById('canvas');
+    const ctx    = canvas.getContext('2d');
+    const video  = document.getElementById('video');
+
+    let frameCount = 0;
+    const ignoreFrames = FPS * 5; // Ignorar primeros 5 segundos
+
+    intervalo = setInterval(() => {
+      if (!capturando) { clearInterval(intervalo); return; }
+
+      ctx.drawImage(video, 0, 0, 100, 100);
+      const px   = ctx.getImageData(0, 0, 100, 100).data;
+      let suma   = 0;
+      for (let i = 0; i < px.length; i += 4) suma += px[i]; // canal R
+      valoresRojos.push(suma / (px.length / 4));
+
+      frameCount++;
+
+      // Detección de picos en tiempo real (esperar al menos 2 seg de buffer después de ignorar)
+      if (frameCount > ignoreFrames && valoresRojos.length >= FPS * 2) {
+        const { count, bpm } = contarPicosEnBuffer(valoresRojos, ignoreFrames);
+        if (count !== picosCliente) {
+          picosCliente = count;
+          actualizarBarraLocal(picosCliente, bpm);
+        }
+      }
+
+      // Si pasaron 15 segundos y hay 5 picos válidos, recopilar datos
+      const tiempoTranscurrido = Date.now() - tiempoInicio;
+      if (capturando && tiempoTranscurrido >= 15000 && picosCliente >= 5 && !mostroAviso) {
+        mostroAviso = true; // Flag para evitar múltiples finalizaciones
+        const { bpm } = contarPicosEnBuffer(valoresRojos, ignoreFrames);
+        if (bpm) {
+          finalizarConExito({ bpm: bpm });
+        }
+      }
+    }, 1000 / FPS);
+  }
+
+  // ─────────────────────────────────────────
+  // DETECCIÓN DE PICOS (cliente, tiempo real)
+  // ─────────────────────────────────────────
+  function contarPicosEnBuffer(buf, ignoreFrames = 0) {
+    // 1. Suavizado (media móvil de 5 frames)
+    const ventana = 5;
+    const suavizado = buf.map((_, i) => {
+      const inicio = Math.max(0, i - Math.floor(ventana / 2));
+      const fin    = Math.min(buf.length, inicio + ventana);
+      const slice  = buf.slice(inicio, fin);
+      return slice.reduce((a, b) => a + b, 0) / slice.length;
+    });
+
+    // 2. Normalizar (0-1)
+    const min = Math.min(...suavizado);
+    const max = Math.max(...suavizado);
+    const rango = max - min || 1;
+    const norm = suavizado.map(v => (v - min) / rango);
+
+    // 3. Detectar picos locales, guardando sus índices
+    const UMBRAL   = 0.55;
+    const DIST_MIN = Math.round(FPS * 0.4); // ~0.4 seg entre picos (max ~150 BPM)
+    let indices  = [];
+    let ultimoPico = -DIST_MIN;
+
+    for (let i = 1; i < norm.length - 1; i++) {
+      if (
+        norm[i] > norm[i - 1] &&
+        norm[i] > norm[i + 1] &&
+        norm[i] > UMBRAL &&
+        i - ultimoPico >= DIST_MIN
+      ) {
+        indices.push(i);
+        ultimoPico = i;
+      }
+    }
+
+    // Filtrar picos que ocurren después de ignoreFrames
+    indices = indices.filter(i => i >= ignoreFrames);
+
+    // 4. Calcular BPM con los índices detectados
+    let bpm = null;
+    if (indices.length >= 2) {
+      const frames  = indices[indices.length - 1] - indices[0];
+      const nInterv = indices.length - 1;
+      bpm = Math.round((nInterv / frames) * FPS * 60);
+      if (bpm < 30 || bpm > 220) bpm = null;
+    }
+
+    return { count: indices.length, bpm };
+  }
+
+  // ─────────────────────────────────────────
+  // ACTUALIZAR BARRA CON CONTEO LOCAL
+  // ─────────────────────────────────────────
+  function actualizarBarraLocal(picos, bpmEstimado = null) {
+    const clamped = Math.min(picos, 5);
+    document.getElementById('picos-contador').textContent = `${clamped}/5`;
+    document.getElementById('barra-fill').style.width     = `${(clamped / 5) * 100}%`;
+    if (picos > 0) {
+      // Solo mostrar BPM una vez que hay 5 picos válidos
+      const bpmTxt = (picos >= 5 && bpmEstimado) ? ` — ~${bpmEstimado} BPM` : '';
+      document.getElementById('progreso-texto').textContent =
+        `${clamped} latido${clamped !== 1 ? 's' : ''} detectado${clamped !== 1 ? 's' : ''}${bpmTxt}`;
+    }
+
+    // 5 picos con BPM válido → no finalizar inmediatamente, esperar a los 15 segundos
+    // (se manejará en capturarFrames())
+  }
+
+  // ─────────────────────────────────────────
+  // AVISO DE IMPRECISIÓN (15 segundos)
+  // ─────────────────────────────────────────
+  function mostrarAvisoImprecision() {
+    if (!capturando || mostroAviso) return;
+    mostroAviso = true;
+    
+    // Solo mostrar el mensaje, la grabación continúa
+    document.getElementById('aviso-imprecision').style.display = 'block';
+  }
+
+  // ─────────────────────────────────────────
+  // ACTUALIZAR MENSAJES DE FEEDBACK
+  // ─────────────────────────────────────────
+  function actualizarFeedback(codigo, picosDetectados = 0) {
+    const mensajes = {
+      'BUSCANDO_PULSO':              'Analizando señal...',
+      'ESTABILIZANDO_SEÑAL':         'Casi listo, no te muevas...',
+      'SIN_DEDO':                    'Coloca el dedo sobre la cámara',
+      'SEÑAL_DEBIL':                 'Presiona un poco más fuerte',
+      'MUCHO_MOVIMIENTO_O_ARRITMIA': 'Señal inestable, quédate quieto'
+    };
+
+    const statusEl = document.getElementById('resultado-estado');
+    statusEl.textContent = mensajes[codigo] || 'Procesando...';
+    statusEl.style.display = 'inline-block';
+
+    // Actualizar contador de picos
+    const total = 5;
+    const picos = Math.min(picosDetectados, total);
+    document.getElementById('picos-contador').textContent = `${picos}/5`;
+    document.getElementById('barra-fill').style.width = `${(picos / total) * 100}%`;
+
+    // Actualizar texto del progreso
+    const textos = {
+      'SIN_DEDO':   'Esperando dedo...',
+      'SEÑAL_DEBIL': 'Señal débil...',
+      'MUCHO_MOVIMIENTO_O_ARRITMIA': 'Movimiento detectado...'
+    };
+    document.getElementById('progreso-texto').textContent =
+      textos[codigo] || `${picos > 0 ? picos + ' latido' + (picos > 1 ? 's' : '') + ' detectado' + (picos > 1 ? 's' : '') : 'Capturando señal...'}`;
+  }
+
+  // ─────────────────────────────────────────
+  // ÉXITO: 5 picos detectados
+  // ─────────────────────────────────────────
+  function finalizarConExito(data) {
+    // Detener captura pero NO desconectar cámara
+    capturando = false;
+    clearInterval(intervalo);
+    clearTimeout(reintento);
+    // No cerramos el stream
+
+    bpmCamara    = data.bpm;
+    modoMedicion = 'camara_ok';
+
+    // UI: barra completa, ocultar cámara pero mantenerla conectada
+    document.getElementById('btn-cancelar').style.display   = 'none';
+    document.getElementById('picos-contador').textContent   = '5/5';
+    document.getElementById('barra-fill').style.width       = '100%';
+    document.getElementById('progreso-texto').textContent   = '5 latidos detectados ✓';
+    document.getElementById('progreso-zona').style.display  = 'none';
+    document.getElementById('signal-dots').style.display    = 'none';
+    document.getElementById('camara-preview').classList.remove('activa');
+    document.getElementById('video').style.display          = 'none';
+    document.getElementById('placeholder').style.display    = 'flex';
+    document.getElementById('btn-atras-4').style.display    = 'none';
+    document.getElementById('aviso-imprecision').style.display = 'none';
+
+    // Mostrar BPM
+    document.getElementById('resultado').style.display      = 'block';
+    document.getElementById('bpm-numero').textContent       = data.bpm;
+    document.getElementById('resultado-estado').textContent = clasificarBPM(data.bpm);
+
+    // Ir directo a medición manual
+    mostrarPanelManualPostCamara();
+  }
+
+  // Panel manual después de captura exitosa por cámara
+  function mostrarPanelManualPostCamara(bpmCam) {
+    document.getElementById('panel-manual-titulo').textContent =
+      '② Ahora mide tu pulso manualmente';
+    document.getElementById('panel-manual-desc').textContent =
+      'Para comparar ambas mediciones, también necesitamos tu pulso manual.';
+    document.getElementById('btn-atras-4').style.display = 'none';
+    document.getElementById('panel-manual').style.display = 'block';
+  }
+
+  // ─────────────────────────────────────────
+  // MANEJO DE ERRORES (botón "Intentar de nuevo")
+  // ─────────────────────────────────────────
+  function manejarError(codigo) {
+    const m = {
+      'SIN_DEDO':        ['No detectamos tu dedo',   ['📍 Cubre completamente la cámara con la yema del dedo', '💡 Busca un lugar con poca luz (evita luz solar directa)', '🤏 Aplica un poco de presión sobre la cámara']],
+      'SEÑAL_DEBIL':     ['Señal muy débil',          ['🤏 Presiona un poco más fuerte con el dedo', '📍 Asegúrate de tapar el flash también', '💡 Busca un lugar más oscuro']],
+      'MUCHO_MOVIMIENTO':['Detectamos movimiento',    ['🧘 Mantén el dedo completamente quieto', '📱 Apoya el celular en una superficie estable', '⏱️ Evita moverte']],
+      'GENERAL':         ['No se pudo calcular',      ['📍 Cubre completamente la cámara con tu dedo', '💡 Busca un lugar con poca iluminación', '🧘 Mantén el dedo quieto y aplica presión moderada']]
+    };
+
+    const [titulo, pasos] = m[codigo] || m['GENERAL'];
+    document.getElementById('bpm-numero').textContent = '—';
+    document.getElementById('resultado-estado').textContent = titulo;
+    mostrarError(`<strong>${titulo}</strong><br><br>` + pasos.map(p => `<div style="margin:6px 0">${p}</div>`).join(''));
+
+    const btn = document.getElementById('btn-medir');
+    btn.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Intentar de nuevo';
+    btn.onclick = reiniciarMedicion;
+    document.getElementById('btn-atras-4').style.display = 'block';
+  }
+
+  // ─────────────────────────────────────────
+  // GRÁFICA DE SEÑAL PPG
+  // ─────────────────────────────────────────
+  function dibujarGrafica(señal) {
+    const canvas = document.getElementById('grafica-pulso');
+    canvas.style.display = 'block';
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#f8f4ef';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(45,27,14,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = (h / 4) * i;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    const min = Math.min(...señal), max = Math.max(...señal);
+    const rango = max - min || 1;
+    const pad = 12;
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#e63946';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+
+    señal.forEach((val, i) => {
+      const x = (i / (señal.length - 1)) * w;
+      const y = pad + (1 - (val - min) / rango) * (h - pad * 2);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+    ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+    ctx.fillStyle = 'rgba(230,57,70,0.08)';
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(92,61,46,0.4)';
+    ctx.font = '10px DM Mono, monospace';
+    ctx.fillText('Señal PPG', 8, 14);
+  }
+
+  // ─────────────────────────────────────────
+  // CLASIFICAR BPM
+  // ─────────────────────────────────────────
+  function clasificarBPM(bpm) {
+    if (bpm < 60)   return 'Bradicardia (bajo)';
+    if (bpm <= 100) return 'Rango normal ✓';
+    if (bpm <= 120) return 'Levemente elevado';
+    return 'Taquicardia (alto)';
+  }
+
+  // ─────────────────────────────────────────
+  // HELPERS UI
+  // ─────────────────────────────────────────
+  function mostrarError(msg) {
+    const el = document.getElementById('error-msg');
+    el.innerHTML = msg;
+    el.style.display = 'block';
+  }
+
+  function reiniciarMedicion() {
+    // Detener todo lo que esté corriendo
+    capturando = false;
+    clearInterval(intervalo);
+    clearTimeout(reintento);
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    valoresRojos = [];
+
+    // Resetear UI
+    ['resultado', 'error-msg', 'progreso-zona', 'signal-dots', 'panel-manual'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+    document.getElementById('btn-cancelar').style.display = 'none';
+    document.getElementById('latidos-manual').value = '';
+    bpmCamara    = null;
+    bpmManual    = null;
+    modoMedicion = null;
+    document.getElementById('bpm-calculado').style.display = 'none';
+    document.getElementById('bpm-calculado-lbl').style.display = 'none';
+    document.getElementById('btn-confirmar-manual').style.display = 'none';
+    document.getElementById('btn-cronometro').style.display = 'block';
+    document.getElementById('cronometro-display').style.display = 'none';
+    document.getElementById('grafica-pulso').style.display = 'none';
+    document.getElementById('barra-fill').style.width      = '0%';
+    document.getElementById('picos-contador').textContent  = '0/5';
+    document.getElementById('progreso-texto').textContent  = 'Capturando señal...';
+    document.getElementById('camara-preview').classList.remove('activa');
+    document.getElementById('video').style.display     = 'none';
+    document.getElementById('placeholder').style.display = 'flex';
+    document.getElementById('instrucciones-camara').style.display = 'block';
+
+    const btn = document.getElementById('btn-medir');
+    btn.style.display = 'block';
+    btn.disabled      = false;
+    btn.textContent   = 'Iniciar medición';
+    btn.onclick       = iniciarMedicion;
+    document.getElementById('btn-atras-4').style.display = 'block';
+  }
+
+  // ─────────────────────────────────────────
+  // CANCELAR CAPTURA → MODO MANUAL
+  // ─────────────────────────────────────────
+  let cronometroTimer = null;
+
+  function cancelarYManual() {
+    // Detener captura pero NO desconectar cámara
+    capturando = false;
+    clearInterval(intervalo);
+    clearTimeout(reintento);
+    // No cerramos el stream
+
+    bpmCamara    = null;
+    modoMedicion = 'usuario_cancelo';
+
+    // Ocultar UI de cámara
+    document.getElementById('progreso-zona').style.display   = 'none';
+    document.getElementById('signal-dots').style.display     = 'none';
+    document.getElementById('btn-cancelar').style.display    = 'none';
+    document.getElementById('btn-atras-4').style.display     = 'block';
+    document.getElementById('resultado').style.display       = 'none';
+    document.getElementById('camara-preview').classList.remove('activa');
+    document.getElementById('video').style.display           = 'none';
+    document.getElementById('placeholder').style.display     = 'flex';
+    document.getElementById('aviso-imprecision').style.display = 'none';
+
+    // Ajustar textos del panel manual
+    document.getElementById('panel-manual-titulo').textContent =
+      'Mide tu pulso manualmente';
+    document.getElementById('panel-manual-desc').textContent =
+      'No se pudo capturar con la cámara. Mide tu pulso de forma manual.';
+
+    // Mostrar panel manual
+    document.getElementById('panel-manual').style.display = 'block';
+    document.getElementById('instrucciones-camara').style.display = 'none';
+    document.getElementById('btn-medir').style.display = 'none';
+  }
+
+  // ─────────────────────────────────────────
+  // CRONÓMETRO DE 10 SEGUNDOS
+  // ─────────────────────────────────────────
+  function iniciarCronometro() {
+    const btnCron    = document.getElementById('btn-cronometro');
+    const display    = document.getElementById('cronometro-display');
+    btnCron.disabled = true;
+    btnCron.textContent = 'Contando...';
+    display.style.display = 'block';
+    display.textContent   = '10';
+
+    let seg = 10;
+    cronometroTimer = setInterval(() => {
+      seg--;
+      display.textContent = seg;
+      if (seg <= 0) {
+        clearInterval(cronometroTimer);
+        display.textContent   = '¡Ya!';
+        btnCron.textContent   = '↺ Contar de nuevo';
+        btnCron.disabled      = false;
+        // Enfocar el input para que el usuario ingrese el número
+        document.getElementById('latidos-manual').focus();
+      }
+    }, 1000);
+  }
+
+  // ─────────────────────────────────────────
+  // CALCULAR BPM MANUAL (latidos × 6)
+  // ─────────────────────────────────────────
+  function calcularBpmManual() {
+    const latidos = parseInt(document.getElementById('latidos-manual').value) || 0;
+    const bpmEl   = document.getElementById('bpm-calculado');
+    const lblEl   = document.getElementById('bpm-calculado-lbl');
+    const btnConf = document.getElementById('btn-confirmar-manual');
+
+    if (latidos >= 1 && latidos <= 40) {
+      const bpm = latidos * 6;
+      bpmEl.textContent    = bpm + ' BPM';
+      bpmEl.style.display  = 'block';
+      lblEl.style.display  = 'block';
+      btnConf.style.display = 'block';
+    } else {
+      bpmEl.style.display  = 'none';
+      lblEl.style.display  = 'none';
+      btnConf.style.display = 'none';
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // CONFIRMAR BPM MANUAL Y ENVIAR FORMULARIO
+  // ─────────────────────────────────────────
+// ─────────────────────────────────────────
+// CONFIRMAR BPM MANUAL Y ENVIAR FORMULARIO
+// ─────────────────────────────────────────
+  function confirmarManual(evento) {
+    // 1. Prevenir que el botón recargue la página si está dentro de un <form>
+    if (evento) evento.preventDefault();
+
+    const latidos = parseInt(document.getElementById('latidos-manual').value) || 0;
+    if (latidos < 1 || latidos > 40) return;
+
+    bpmManual = latidos * 6;
+    
+    // 2. Arreglar el estado: Si canceló o si entró directo (null)
+    if (modoMedicion === 'usuario_cancelo' || modoMedicion === null) {
+      modoMedicion = 'solo_manual';
+    }
+
+    // BPM a mostrar en pantalla final
+    const bpmMostrar = bpmCamara ?? bpmManual;
+    document.getElementById('final-bpm').textContent = bpmMostrar;
+
+    document.getElementById('panel-manual').style.display = 'none';
+
+    // Si hay BPM de cámara, cerrar stream y enviar
+    if (bpmCamara !== null) {
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      enviarFormulario();
+      return;
+    }
+
+    // Solo manual: mostrar resultado antes de enviar
+    document.getElementById('resultado').style.display      = 'block';
+    document.getElementById('bpm-numero').textContent       = bpmManual;
+    document.getElementById('resultado-estado').textContent = clasificarBPM(bpmManual);
+
+    setTimeout(() => {
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      enviarFormulario();
+    }, 1500);
+  }
+
+
+
+  // ─────────────────────────────────────────
+  // ENVIAR FORMULARIO COMPLETO
+  // ─────────────────────────────────────────
+  async function enviarFormulario() {
+    try {
+      const payload = prepararPayload();
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        irSeccion(5);
+      } else {
+        console.error('Error al enviar:', res.status);
+        irSeccion(5);
+      }
+    } catch (e) {
+      console.error('Error de red:', e);
+      irSeccion(5);
+    }
+  }
+  function reintentarCamara() {
+    // 1. Apagamos todo y reseteamos las variables e interfaz a su estado inicial
+    reiniciarMedicion();
+
+    // 2. Nos aseguramos de ocultar el panel manual y el de resultados 
+    // (por si el usuario lo presionó después de haber tenido éxito o haber cancelado)
+    document.getElementById('panel-manual').style.display = 'none';
+    document.getElementById('resultado').style.display = 'none';
+
+    // 3. Volveamos a iniciar la medición automáticamente
+    iniciarMedicion();
+  }
+
+  function reiniciar() {
+    reiniciarMedicion();
+    document.querySelectorAll('input[type="text"], input[type="number"]').forEach(i => i.value = '');
+    document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+    document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+    document.getElementById('tipo-actividad-grupo').style.display = 'none';
+    document.getElementById('detalle-actividad').style.display    = 'none';
+    irSeccion(1);
+  }
+</script>
+</body>
+</html>
