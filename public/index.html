@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/styles.css?v=live-monitor-3">
 </head>
 <body>
   <main class="app-shell">
@@ -47,7 +47,7 @@
         <div class="instructions" id="instructions">
           <strong>1.</strong> Presiona iniciar medicion<br>
           <strong>2.</strong> Acepta el permiso de camara<br>
-          <strong>3.</strong> Mantente quieto hasta detectar 5 latidos estables
+          <strong>3.</strong> Mantente quieto; los primeros 5 s se estabiliza la senal
         </div>
 
         <div class="progress-zone" id="progress-zone">
@@ -60,12 +60,14 @@
           </div>
         </div>
 
+        <canvas id="live-chart" width="400" height="120"></canvas>
+
         <div class="signal-dots" id="signal-dots" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span>
         </div>
 
         <div class="result" id="result">
-          <p class="result-label">Tu frecuencia cardiaca</p>
+          <p class="result-label">Frecuencia cardiaca</p>
           <p class="result-number" id="bpm-number">--</p>
           <p class="result-label">pulsaciones por minuto</p>
           <span class="result-status" id="result-status">Calculando...</span>
@@ -75,6 +77,7 @@
         <div class="error-message" id="error-message"></div>
 
         <button class="button primary" id="measure-button" type="button">Iniciar medicion</button>
+        <button class="button danger" id="stop-button" type="button" hidden style="display:none;">Detener medicion</button>
         <button class="button secondary" id="reset-button" type="button">Realizar otra medicion</button>
       </div>
     </section>
@@ -82,6 +85,6 @@
     <footer>AVResolutions &copy; 2026 - Medicion no invasiva</footer>
   </main>
 
-  <script src="/js/app.js" defer></script>
+  <script src="/js/app.js?v=live-monitor-3" defer></script>
 </body>
 </html>

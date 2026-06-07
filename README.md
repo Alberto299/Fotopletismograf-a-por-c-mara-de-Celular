@@ -1,6 +1,6 @@
 # AVResolutions Heart Rate
 
-Aplicacion web para medir frecuencia cardiaca por fotopletismografia usando la camara del dispositivo.
+Aplicacion web para medir frecuencia cardiaca por fotopletismografia usando la camara del dispositivo. Los primeros 5 segundos se ignoran para estabilizar la senal; despues se grafica en tiempo real y la FC se actualiza continuamente cuando hay 5 picos estables. El usuario decide cuando detener la medicion.
 
 ## Estructura
 

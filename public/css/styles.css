@@ -187,7 +187,9 @@ footer {
 .signal-dots,
 .result,
 .error-message,
+#live-chart,
 #pulse-chart,
+#stop-button,
 #reset-button {
   display: none;
 }
@@ -291,6 +293,18 @@ footer {
   background: rgba(45, 27, 14, 0.04);
 }
 
+.button.danger {
+  margin-top: 18px;
+  background: var(--coffee);
+  color: var(--cream);
+}
+
+.button.danger:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--coffee-soft);
+  box-shadow: 0 6px 20px rgba(45, 27, 14, 0.22);
+}
+
 .result {
   animation: pop 0.45s ease both;
 }
@@ -324,11 +338,17 @@ footer {
   text-transform: uppercase;
 }
 
+#live-chart,
 #pulse-chart {
   width: 100%;
   margin-top: 18px;
   border-radius: 8px;
   background: var(--cream);
+}
+
+#live-chart {
+  margin-bottom: 10px;
+  border: 1px solid rgba(45, 27, 14, 0.08);
 }
 
 .error-message {

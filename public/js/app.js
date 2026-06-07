@@ -1,24 +1,32 @@
 const API_URL = '/api/medir';
 const FPS = 30;
+const WARMUP_SECONDS = 5;
 const MIN_CAPTURE_SECONDS = 4;
-const MAX_CAPTURE_SECONDS = 45;
-const ANALYSIS_INTERVAL_MS = 1200;
+const MAX_SIGNAL_SECONDS = 20;
+const LIVE_CHART_SECONDS = 10;
+const ANALYSIS_INTERVAL_MS = 1000;
 const REQUIRED_PEAKS = 5;
 
 const state = {
   stream: null,
   captureInterval: null,
   analysisTimeout: null,
+  animationFrame: null,
   redValues: [],
+  totalSamples: 0,
   isCapturing: false,
-  isAnalyzing: false
+  isAnalyzing: false,
+  lastBpm: null,
+  lastDebugSignal: null
 };
 
 const elements = {
   button: document.getElementById('measure-button'),
+  stopButton: document.getElementById('stop-button'),
   resetButton: document.getElementById('reset-button'),
   video: document.getElementById('video'),
   canvas: document.getElementById('capture-canvas'),
+  liveChart: document.getElementById('live-chart'),
   placeholder: document.getElementById('placeholder'),
   preview: document.getElementById('camera-preview'),
   instructions: document.getElementById('instructions'),
@@ -35,7 +43,9 @@ const elements = {
 };
 
 elements.button.addEventListener('click', startMeasurement);
+elements.stopButton.addEventListener('click', stopMeasurement);
 elements.resetButton.addEventListener('click', resetMeasurement);
+setStopButtonVisible(false);
 
 async function startMeasurement() {
   hideError();
@@ -131,24 +141,33 @@ function beginCapture() {
   elements.instructions.style.display = 'none';
   elements.progressZone.style.display = 'block';
   elements.signalDots.style.display = 'flex';
+  elements.liveChart.style.display = 'block';
+  elements.result.style.display = 'block';
   elements.button.style.display = 'none';
+  setStopButtonVisible(true);
   elements.resetButton.style.display = 'none';
-  elements.result.style.display = 'none';
   elements.chart.style.display = 'none';
 
   state.redValues = [];
+  state.totalSamples = 0;
+  state.lastBpm = null;
+  state.lastDebugSignal = null;
   state.isCapturing = true;
   state.isAnalyzing = false;
-  updatePeakProgress(0, 'Capturando senal...');
+  elements.bpmNumber.textContent = '--';
+  elements.resultStatus.textContent = 'Estabilizando senal...';
+  updatePeakProgress(0, `Ignorando primeros ${WARMUP_SECONDS} s...`);
 
   window.setTimeout(() => {
     captureFrames();
+    drawLiveSignal();
     scheduleAnalysis();
   }, 500);
 }
 
 function captureFrames() {
   const context = elements.canvas.getContext('2d');
+  const maxSamples = MAX_SIGNAL_SECONDS * FPS;
 
   state.captureInterval = window.setInterval(() => {
     if (!state.isCapturing) return;
@@ -161,8 +180,31 @@ function captureFrames() {
       redSum += pixels[i];
     }
 
+    state.totalSamples += 1;
+    if (state.totalSamples <= WARMUP_SECONDS * FPS) {
+      const remainingWarmup = Math.ceil(((WARMUP_SECONDS * FPS) - state.totalSamples) / FPS);
+      updatePeakProgress(0, `Estabilizando senal... ${remainingWarmup} s`);
+      return;
+    }
+
     state.redValues.push(redSum / (pixels.length / 4));
+    if (state.redValues.length > maxSamples) {
+      state.redValues.splice(0, state.redValues.length - maxSamples);
+    }
   }, 1000 / FPS);
+}
+
+function drawLiveSignal() {
+  if (!state.isCapturing) return;
+
+  const samples = state.redValues.slice(-LIVE_CHART_SECONDS * FPS);
+  drawSignalOnCanvas(elements.liveChart, samples, {
+    stroke: '#e63946',
+    fill: 'rgba(230,57,70,0.08)',
+    label: `Senal en vivo - ultimos ${LIVE_CHART_SECONDS} s`
+  });
+
+  state.animationFrame = window.requestAnimationFrame(drawLiveSignal);
 }
 
 function scheduleAnalysis() {
@@ -176,11 +218,6 @@ async function analyzeCurrentSignal() {
   const capturedSeconds = state.redValues.length / FPS;
   if (capturedSeconds < MIN_CAPTURE_SECONDS) {
     scheduleAnalysis();
-    return;
-  }
-
-  if (capturedSeconds > MAX_CAPTURE_SECONDS) {
-    finishWithError('GENERAL');
     return;
   }
 
@@ -199,11 +236,14 @@ async function analyzeCurrentSignal() {
     const data = await response.json();
 
     if (response.ok) {
-      finishWithSuccess(data);
-      return;
+      state.lastBpm = data.bpm;
+      state.lastDebugSignal = data.senal_debug || state.lastDebugSignal;
+      elements.bpmNumber.textContent = data.bpm;
+      elements.resultStatus.textContent = classifyBpm(data.bpm);
+      updatePeakProgress(REQUIRED_PEAKS, '5 latidos estables detectados');
+    } else {
+      updateFeedback(data.detail, data.picos_detectados || 0);
     }
-
-    updateFeedback(data.detail, data.picos_detectados || 0);
   } catch {
     updateFeedback('GENERAL', 0);
   } finally {
@@ -213,40 +253,35 @@ async function analyzeCurrentSignal() {
   if (state.isCapturing) scheduleAnalysis();
 }
 
-function finishWithSuccess(data) {
+function stopMeasurement() {
   state.isCapturing = false;
+  state.isAnalyzing = false;
   window.clearInterval(state.captureInterval);
   window.clearTimeout(state.analysisTimeout);
+  window.cancelAnimationFrame(state.animationFrame);
   stopCamera();
 
-  updatePeakProgress(REQUIRED_PEAKS, '5 latidos estables detectados');
   elements.progressZone.style.display = 'none';
   elements.signalDots.style.display = 'none';
-  elements.result.style.display = 'block';
-  elements.bpmNumber.textContent = data.bpm;
-  elements.resultStatus.textContent = classifyBpm(data.bpm);
-  drawChart(data.senal_debug);
+  setStopButtonVisible(false);
   elements.resetButton.style.display = 'block';
   elements.preview.classList.remove('active');
   elements.video.style.display = 'none';
   elements.placeholder.style.display = 'flex';
-}
 
-function finishWithError(code) {
-  state.isCapturing = false;
-  window.clearInterval(state.captureInterval);
-  window.clearTimeout(state.analysisTimeout);
-  stopCamera();
-
-  elements.progressZone.style.display = 'none';
-  elements.signalDots.style.display = 'none';
-  elements.result.style.display = 'block';
-  elements.bpmNumber.textContent = '--';
-  elements.resultStatus.textContent = 'Sin resultado';
-  handleMeasurementError(code);
-  elements.preview.classList.remove('active');
-  elements.video.style.display = 'none';
-  elements.placeholder.style.display = 'flex';
+  if (state.lastBpm) {
+    elements.resultStatus.textContent = `${classifyBpm(state.lastBpm)} - medicion detenida`;
+    drawSignalOnCanvas(elements.chart, state.lastDebugSignal || state.redValues.slice(-LIVE_CHART_SECONDS * FPS), {
+      stroke: '#e63946',
+      fill: 'rgba(230,57,70,0.08)',
+      label: 'Senal final'
+    });
+    elements.chart.style.display = 'block';
+  } else {
+    elements.bpmNumber.textContent = '--';
+    elements.resultStatus.textContent = 'Medicion detenida sin FC estable';
+    showError('No se alcanzaron 5 latidos estables antes de detener la medicion.');
+  }
 }
 
 function updateFeedback(code, peaksDetected) {
@@ -260,6 +295,9 @@ function updateFeedback(code, peaksDetected) {
   };
 
   updatePeakProgress(peaksDetected, messages[code] || messages.GENERAL);
+  if (!state.lastBpm) {
+    elements.resultStatus.textContent = messages[code] || messages.GENERAL;
+  }
 }
 
 function updatePeakProgress(peaksDetected, text) {
@@ -269,31 +307,14 @@ function updatePeakProgress(peaksDetected, text) {
   elements.progressFill.style.width = `${(peaks / REQUIRED_PEAKS) * 100}%`;
 }
 
-function handleMeasurementError(code) {
-  const messages = {
-    SIN_DEDO: 'No detectamos tu dedo. Cubre completamente la camara y evita luz directa.',
-    SENAL_INSUFICIENTE: 'La captura fue muy corta. Intenta de nuevo manteniendo la app abierta.',
-    BUSCANDO_PULSO: 'No encontramos suficientes latidos. Mantente quieto y prueba otra vez.',
-    ESTABILIZANDO_SENAL: 'La senal no fue estable. Apoya el celular en una superficie firme.',
-    MUCHO_MOVIMIENTO_O_ARRITMIA: 'Detectamos movimiento o una senal irregular. Repite la medicion sin mover el dedo.',
-    GENERAL: 'No se pudo calcular la frecuencia cardiaca. Intenta de nuevo con mejor iluminacion.'
-  };
-
-  showError(messages[code] || messages.GENERAL);
-  elements.resetButton.style.display = 'block';
-}
-
-function drawChart(signal) {
-  if (!Array.isArray(signal) || signal.length < 2) return;
-
-  elements.chart.style.display = 'block';
-  const context = elements.chart.getContext('2d');
-  const width = elements.chart.width;
-  const height = elements.chart.height;
+function drawSignalOnCanvas(canvas, signal, options = {}) {
+  const context = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
   const padding = 12;
-  const min = Math.min(...signal);
-  const max = Math.max(...signal);
-  const range = max - min || 1;
+  const stroke = options.stroke || '#e63946';
+  const fill = options.fill || 'transparent';
+  const label = options.label || '';
 
   context.clearRect(0, 0, width, height);
   context.fillStyle = '#f8f4ef';
@@ -309,8 +330,17 @@ function drawChart(signal) {
     context.stroke();
   }
 
+  if (!Array.isArray(signal) || signal.length < 2) {
+    drawChartLabel(context, label || 'Esperando senal...', width);
+    return;
+  }
+
+  const min = Math.min(...signal);
+  const max = Math.max(...signal);
+  const range = max - min || 1;
+
   context.beginPath();
-  context.strokeStyle = '#e63946';
+  context.strokeStyle = stroke;
   context.lineWidth = 2;
   context.lineJoin = 'round';
 
@@ -322,6 +352,19 @@ function drawChart(signal) {
   });
 
   context.stroke();
+  context.lineTo(width, height);
+  context.lineTo(0, height);
+  context.closePath();
+  context.fillStyle = fill;
+  context.fill();
+  drawChartLabel(context, label, width);
+}
+
+function drawChartLabel(context, label, width) {
+  if (!label) return;
+  context.fillStyle = 'rgba(92,61,46,0.55)';
+  context.font = '10px DM Mono, monospace';
+  context.fillText(label, 8, 14, width - 16);
 }
 
 function classifyBpm(bpm) {
@@ -334,8 +377,12 @@ function classifyBpm(bpm) {
 function resetMeasurement() {
   state.isCapturing = false;
   state.isAnalyzing = false;
+  state.lastBpm = null;
+  state.lastDebugSignal = null;
+  state.totalSamples = 0;
   window.clearInterval(state.captureInterval);
   window.clearTimeout(state.analysisTimeout);
+  window.cancelAnimationFrame(state.animationFrame);
   stopCamera();
   state.redValues = [];
 
@@ -343,7 +390,9 @@ function resetMeasurement() {
   elements.error.style.display = 'none';
   elements.progressZone.style.display = 'none';
   elements.signalDots.style.display = 'none';
+  elements.liveChart.style.display = 'none';
   elements.chart.style.display = 'none';
+  setStopButtonVisible(false);
   elements.resetButton.style.display = 'none';
   elements.instructions.style.display = 'block';
   elements.progressFill.style.width = '0%';
@@ -375,4 +424,9 @@ function hideError() {
 function setButton(text, disabled) {
   elements.button.textContent = text;
   elements.button.disabled = disabled;
+}
+
+function setStopButtonVisible(isVisible) {
+  elements.stopButton.hidden = !isVisible;
+  elements.stopButton.style.display = isVisible ? 'block' : 'none';
 }

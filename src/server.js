@@ -75,7 +75,10 @@ async function serveStatic(req, res) {
   try {
     const data = await readFile(filePath);
     const type = contentTypes[extname(filePath).toLowerCase()] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': type });
+    res.writeHead(200, {
+      'Content-Type': type,
+      'Cache-Control': 'no-store, max-age=0'
+    });
     res.end(data);
   } catch {
     sendText(res, 404, 'Not found');
@@ -157,11 +160,17 @@ function runPython(action, payload) {
 }
 
 function sendJson(res, statusCode, body) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, max-age=0'
+  });
   res.end(JSON.stringify(body));
 }
 
 function sendText(res, statusCode, body) {
-  res.writeHead(statusCode, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.writeHead(statusCode, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-store, max-age=0'
+  });
   res.end(body);
 }
